@@ -1,23 +1,31 @@
 // 灵猫符牌 - 微信小游戏最小可运行版本
 
-const ELEMENTS = ['fire', 'water', 'wood', 'metal', 'earth'];
-const ELEMENT_DISPLAY_ORDER = ['metal', 'wood', 'water', 'fire', 'earth'];
+const elementConfig = require('./src/config/elements');
+const levelConfig = require('./src/config/levels');
+const handTypeConfig = require('./src/config/handTypes');
+const relicConfig = require('./src/config/relics');
+const bossConfig = require('./src/config/boss');
+const handEvaluator = require('./src/logic/handEvaluator');
 
-const ELEMENT_LABELS = {
-  fire: '火',
-  water: '水',
-  wood: '木',
-  metal: '金',
-  earth: '土'
-};
+const ELEMENTS = elementConfig.ELEMENTS;
+const ELEMENT_DISPLAY_ORDER = elementConfig.ELEMENT_DISPLAY_ORDER;
+const ELEMENT_LABELS = elementConfig.ELEMENT_LABELS;
+const ELEMENT_COLORS = elementConfig.ELEMENT_COLORS;
+const ELEMENT_ICON_PATHS = elementConfig.ELEMENT_ICON_PATHS;
 
-const ELEMENT_COLORS = {
-  fire: '#d85b44',
-  water: '#3f83c9',
-  wood: '#4d9a57',
-  metal: '#b68b32',
-  earth: '#8b6b4a'
-};
+const STAGES_PER_WORLD = levelConfig.STAGES_PER_WORLD;
+const LEVEL_COUNT = levelConfig.LEVEL_COUNT;
+const LEVEL_HP = levelConfig.LEVEL_HP;
+
+const HAND_TYPES = handTypeConfig.HAND_TYPES;
+const createHandTypeCounts = handEvaluator.createHandTypeCounts;
+const evaluateHand = handEvaluator.evaluateHand;
+const getScoringCards = handEvaluator.getScoringCards;
+const orderPlayedCardsForDisplay = handEvaluator.orderPlayedCardsForDisplay;
+
+const RELICS = relicConfig.RELICS;
+const GAME_IMAGE_PATHS = bossConfig.GAME_IMAGE_PATHS;
+const MONSTER_LAYOUT = bossConfig.MONSTER_LAYOUT;
 
 const GAME_FONT_PATH = 'assets/ZCOOLKuaiLe-Regular.ttf';
 let GAME_FONT_FAMILY = 'sans-serif';
@@ -55,32 +63,6 @@ function strokeRoundedRect(drawCtx, x, y, w, h, radius, strokeStyle, lineWidth) 
   drawCtx.stroke();
 }
 
-const ELEMENT_ICON_PATHS = {
-  fire: 'assets/element-fire.png',
-  water: 'assets/element-water.png',
-  wood: 'assets/element-wood.png',
-  metal: 'assets/element-metal.png',
-  earth: 'assets/element-earth.png'
-};
-
-const STAGES_PER_WORLD = 3;
-const WORLD_COUNT = 3;
-const LEVEL_COUNT = STAGES_PER_WORLD * WORLD_COUNT;
-const LEVEL_HP = [
-  300, 300, 300,
-  450, 450, 450,
-  600, 600, 600
-];
-
-const HAND_TYPES = [
-  { type: 'spirit_straight', name: '灵脉符', baseScore: 100, multiplier: 6 },
-  { type: 'same_element', name: '同源符', baseScore: 50, multiplier: 4 },
-  { type: 'straight', name: '五连符', baseScore: 60, multiplier: 3 },
-  { type: 'triple', name: '三重符', baseScore: 40, multiplier: 3 },
-  { type: 'pair', name: '对符', baseScore: 20, multiplier: 2 },
-  { type: 'single', name: '单符', baseScore: 10, multiplier: 1 }
-];
-
 function makeExampleCard(element, number, index) {
   return {
     id: 'example_' + element + '_' + number + '_' + index,
@@ -91,16 +73,166 @@ function makeExampleCard(element, number, index) {
 
 // 比赛信息「牌型示例」用的一组符牌（与 evaluateHand 判定一致）。
 function createHandTypeExampleCards(handType) {
-  if (handType === 'spirit_straight') {
-    return [1, 2, 3, 4, 5].map(function(n, i) {
+  if (handType === 'royal_flush') {
+    return [6, 7, 8, 9, 10].map(function(n, i) {
+      return makeExampleCard('fire', n, i);
+    });
+  }
+
+  if (handType === 'straight_flush') {
+    return [2, 3, 4, 5, 6].map(function(n, i) {
+      return makeExampleCard('water', n, i);
+    });
+  }
+
+  if (handType === 'four_kind') {
+    return [
+      makeExampleCard('fire', 8, 0),
+      makeExampleCard('water', 8, 1),
+      makeExampleCard('wood', 8, 2),
+      makeExampleCard('metal', 8, 3),
+      makeExampleCard('earth', 2, 4)
+    ];
+  }
+
+  if (handType === 'full_house') {
+    return [
+      makeExampleCard('fire', 8, 0),
+      makeExampleCard('water', 8, 1),
+      makeExampleCard('wood', 8, 2),
+      makeExampleCard('metal', 5, 3),
+      makeExampleCard('earth', 5, 4)
+    ];
+  }
+
+  if (handType === 'fire_five') {
+    return [1, 3, 5, 7, 9].map(function(n, i) {
+      return makeExampleCard('fire', n, i);
+    });
+  }
+
+  if (handType === 'water_five') {
+    return [2, 4, 6, 8, 10].map(function(n, i) {
+      return makeExampleCard('water', n, i);
+    });
+  }
+
+  if (handType === 'wood_five') {
+    return [1, 2, 4, 7, 9].map(function(n, i) {
       return makeExampleCard('wood', n, i);
     });
   }
 
-  if (handType === 'same_element') {
-    return [1, 3, 5, 7, 9].map(function(n, i) {
+  if (handType === 'metal_five') {
+    return [3, 5, 6, 8, 10].map(function(n, i) {
       return makeExampleCard('metal', n, i);
     });
+  }
+
+  if (handType === 'earth_five') {
+    return [1, 4, 5, 6, 10].map(function(n, i) {
+      return makeExampleCard('earth', n, i);
+    });
+  }
+
+  if (handType === 'fire_earth') {
+    return [
+      makeExampleCard('fire', 1, 0),
+      makeExampleCard('fire', 3, 1),
+      makeExampleCard('fire', 5, 2),
+      makeExampleCard('earth', 2, 3),
+      makeExampleCard('earth', 4, 4)
+    ];
+  }
+
+  if (handType === 'metal_water') {
+    return [
+      makeExampleCard('metal', 2, 0),
+      makeExampleCard('metal', 4, 1),
+      makeExampleCard('metal', 6, 2),
+      makeExampleCard('water', 3, 3),
+      makeExampleCard('water', 5, 4)
+    ];
+  }
+
+  if (handType === 'water_wood') {
+    return [
+      makeExampleCard('water', 1, 0),
+      makeExampleCard('water', 3, 1),
+      makeExampleCard('water', 5, 2),
+      makeExampleCard('wood', 2, 3),
+      makeExampleCard('wood', 4, 4)
+    ];
+  }
+
+  if (handType === 'wood_fire') {
+    return [
+      makeExampleCard('wood', 2, 0),
+      makeExampleCard('wood', 4, 1),
+      makeExampleCard('wood', 6, 2),
+      makeExampleCard('fire', 3, 3),
+      makeExampleCard('fire', 5, 4)
+    ];
+  }
+
+  if (handType === 'earth_metal') {
+    return [
+      makeExampleCard('earth', 1, 0),
+      makeExampleCard('earth', 3, 1),
+      makeExampleCard('earth', 5, 2),
+      makeExampleCard('metal', 2, 3),
+      makeExampleCard('metal', 4, 4)
+    ];
+  }
+
+  if (handType === 'metal_wood') {
+    return [
+      makeExampleCard('metal', 3, 0),
+      makeExampleCard('metal', 5, 1),
+      makeExampleCard('metal', 7, 2),
+      makeExampleCard('wood', 2, 3),
+      makeExampleCard('wood', 4, 4)
+    ];
+  }
+
+  if (handType === 'wood_earth') {
+    return [
+      makeExampleCard('wood', 1, 0),
+      makeExampleCard('wood', 3, 1),
+      makeExampleCard('wood', 5, 2),
+      makeExampleCard('earth', 2, 3),
+      makeExampleCard('earth', 4, 4)
+    ];
+  }
+
+  if (handType === 'earth_water') {
+    return [
+      makeExampleCard('earth', 2, 0),
+      makeExampleCard('earth', 4, 1),
+      makeExampleCard('earth', 6, 2),
+      makeExampleCard('water', 3, 3),
+      makeExampleCard('water', 5, 4)
+    ];
+  }
+
+  if (handType === 'water_fire') {
+    return [
+      makeExampleCard('water', 2, 0),
+      makeExampleCard('water', 4, 1),
+      makeExampleCard('water', 6, 2),
+      makeExampleCard('fire', 3, 3),
+      makeExampleCard('fire', 5, 4)
+    ];
+  }
+
+  if (handType === 'fire_metal') {
+    return [
+      makeExampleCard('fire', 1, 0),
+      makeExampleCard('fire', 3, 1),
+      makeExampleCard('fire', 5, 2),
+      makeExampleCard('metal', 2, 3),
+      makeExampleCard('metal', 4, 4)
+    ];
   }
 
   if (handType === 'straight') {
@@ -123,6 +255,16 @@ function createHandTypeExampleCards(handType) {
     ];
   }
 
+  if (handType === 'two_pair') {
+    return [
+      makeExampleCard('fire', 6, 0),
+      makeExampleCard('water', 6, 1),
+      makeExampleCard('wood', 4, 2),
+      makeExampleCard('metal', 4, 3),
+      makeExampleCard('earth', 2, 4)
+    ];
+  }
+
   if (handType === 'pair') {
     return [
       makeExampleCard('fire', 6, 0),
@@ -136,73 +278,15 @@ function createHandTypeExampleCards(handType) {
   return [makeExampleCard('fire', 9, 0)];
 }
 
-const RELICS = [
-  {
-    id: 'fire_tail',
-    name: '火尾猫',
-    price: 6,
-    desc: '每张火牌 +5 加分'
-  },
-  {
-    id: 'water_mirror',
-    name: '水镜猫',
-    price: 7,
-    desc: '每张水牌 倍率 +0.2'
-  },
-  {
-    id: 'orange_cat',
-    name: '橘猫',
-    price: 8,
-    desc: '每张 7 倍率 +0.5'
-  },
-  {
-    id: 'black_cat',
-    name: '黑猫',
-    price: 9,
-    desc: '每关首次出牌 倍率 x2'
-  },
-  {
-    id: 'wealth_cat',
-    name: '招财猫',
-    price: 6,
-    desc: '打出对符 金币 +2'
-  }
-];
-
 const canvas = wx.createCanvas();
 const ctx = canvas.getContext('2d');
 const systemInfo = wx.getSystemInfoSync();
 const ELEMENT_ICONS = {};
 const GAME_IMAGES = {};
 
-const GAME_IMAGE_PATHS = {
-  background: 'assets/battle-background.png',
-  catBoss: 'assets/cat-boss-key.png',
-  slashEffect: 'assets/slash-effect-key.png'
-};
-
 const HAMMER_SOUND_SRC = 'data:audio/wav;base64,UklGRpQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YXADAAAAANgSXiMYMDA4jTvSOj43bzIdLs4rnSwGMd44WUMwT9xa02TMa+1u8W0qaXBh/1c5TnJFuT6sOmY5fToYPRpATkKfQkVA4TqPMtwnrRscD0YDH/lP8RjsUely6KvoDOmu6NfmGuNo3Q3Wps0DxQa9fbYDsumvKLBqshm2d7q/vkfCmMSCxR/FzMMbwrTAPcA5wfvDkMjGzi/WN9475qbtAPQI+bf8QP8EAX8CNgSbBvwJeg79E0Aa1SBBJwYtvDEgNR43zjd0N3A2LjUUNHIzdTMfNE01uTYION044jjcN7I1cTJILoEpdSSAH+wa7xadE+oQrA6lDI8KJAgyBZwBY/2k+JXzeu6d6UDlleG23qLcQNti2s/ZT9mv2M/XotY11afTKNLs0CfQAdCT0N/R1NNO1h7ZEtz53q/hIORJ5jnoDerr6/jtVPAW80H2zPmd/Y8BeQUwCZQMjA8SEiwU7BVtF9AYMRqmGzkd6B6mIFoi5yMuJRUmiSaBJgMmHSXnI3wi+CBzH/wdmxxKG/4ZpRgqF3kVhBNGEcAO/wsWCRsGKQNVALH9RvsV+Rn3RfWK89nxJPBj7pfsxOr36EHnsuVe5FHjlOIn4gfiKOJ84vXig+Md5LzkYOUO5s7mrOey6OrpWev/7Nfu2PD08h71R/dj+Wr7WP0u/+8AowJRBAEGtwd0CTYL9wysDkwQyxEgE0MUMhXtFXcW1xYVFzgXRxdGFzYXFhfhFpIWIhaMFcsU3xPJEo0RMxDCDkMNvgs5CrgIPAfFBVEE2wJhAd//Vv7G/DT7o/kb+KT2Q/X+89jy1PHw8Cvwgu/v7nHuBO6n7VztJO0D7fzsE+1K7aXtIe6/7nnvTPA08SryLPM19ET1WfZz95X4v/nz+jL8ef3H/hoAbAG6Av8DNwVdBnIHcwhgCTwKBgvBC20MCw2bDRsOiQ7jDiYPUA9fD1QPLg/vDpgOLQ6vDSMNiQzjCzILdwqxCd8IAQgXByIGIgUbBA0D/QHtAOD/2v7b/eX8+fsY+0D6c/mu+PT3RPef9gb2fPUD9Zv0RvQG9NrzwvO+883z7PMc9Fn0pfT99GL10/VR9tz2dPcY+Mn4g/lH+hL74vu1/In9Xf4v//7/yQCRAVQCEgPMA4AELQXTBXAGAgeJBwIIbgjLCBkJWAmICaoJ';
 
 const HAMMER_SOUND_FILE = 'assets/hammer-hit.wav';
-
-const MONSTER_LAYOUT = {
-  hpBottomPadding: 2,
-  stageTopPadding: 4,
-  stageToHpGap: 2,
-  stageMinHeight: 72,
-  monsterMinHeight: 58,
-  monsterHeightRatio: 0.94,
-  monsterHeightInset: 2,
-  monsterHorizontalMargin: 72,
-  monsterMinWidth: 108,
-  monsterAspectRatio: 1.36,
-  monsterToHpGap: 0,
-  monsterVisualDownOffsetRatio: 0.12,
-  monsterBottomClearance: 0,
-  hpWidthMax: 320,
-  hpHorizontalPadding: 42,
-  hpHeight: 22
-};
 
 canvas.width = systemInfo.windowWidth;
 canvas.height = systemInfo.windowHeight;
@@ -228,144 +312,6 @@ function createLevelDeck() {
   }
 
   return deck;
-}
-
-function createHandTypeCounts() {
-  const counts = {};
-
-  HAND_TYPES.forEach(function(handType) {
-    counts[handType.type] = 0;
-  });
-
-  return counts;
-}
-
-// 判断牌型，并返回基础分和倍率。
-function evaluateHand(cards) {
-  if (!cards || cards.length === 0) {
-    return { type: 'none', name: '无符', baseScore: 0, multiplier: 0 };
-  }
-
-  const numbers = cards.map(function(card) {
-    return card.number;
-  }).sort(function(a, b) {
-    return a - b;
-  });
-  const sameElement = cards.every(function(card) {
-    return card.element === cards[0].element;
-  });
-  const counts = {};
-
-  numbers.forEach(function(number) {
-    counts[number] = (counts[number] || 0) + 1;
-  });
-
-  const hasCount = function(count) {
-    return Object.keys(counts).some(function(key) {
-      return counts[key] === count;
-    });
-  };
-
-  const isFiveStraight = cards.length === 5 && numbers.every(function(number, index) {
-    return index === 0 || number === numbers[index - 1] + 1;
-  });
-
-  if (cards.length === 5 && isFiveStraight && sameElement) {
-    return { type: 'spirit_straight', name: '灵脉符', baseScore: 100, multiplier: 6 };
-  }
-
-  if (cards.length === 5 && sameElement) {
-    return { type: 'same_element', name: '同源符', baseScore: 50, multiplier: 4 };
-  }
-
-  if (cards.length === 5 && isFiveStraight) {
-    return { type: 'straight', name: '五连符', baseScore: 60, multiplier: 3 };
-  }
-
-  if (cards.length >= 3 && hasCount(3)) {
-    return { type: 'triple', name: '三重符', baseScore: 40, multiplier: 3 };
-  }
-
-  if (cards.length >= 2 && hasCount(2)) {
-    return { type: 'pair', name: '对符', baseScore: 20, multiplier: 2 };
-  }
-
-  return { type: 'single', name: '单符', baseScore: 10, multiplier: 1 };
-}
-
-function getScoringCards(cards, handType) {
-  if (!cards || cards.length === 0) {
-    return [];
-  }
-
-  if (handType === 'spirit_straight' || handType === 'same_element' || handType === 'straight') {
-    return cards.slice();
-  }
-
-  // 单符：仅最高点数的一张参与底分与结算（多张时其余为废牌）。
-  if (handType === 'single') {
-    let best = cards[0];
-    cards.forEach(function(card) {
-      if (card.number > best.number) {
-        best = card;
-      }
-    });
-    return [best];
-  }
-
-  const groups = {};
-
-  cards.forEach(function(card) {
-    if (!groups[card.number]) {
-      groups[card.number] = [];
-    }
-    groups[card.number].push(card);
-  });
-
-  const numbers = Object.keys(groups).map(function(numberText) {
-    return Number(numberText);
-  }).sort(function(a, b) {
-    return b - a;
-  });
-
-  if (handType === 'triple') {
-    for (let i = 0; i < numbers.length; i += 1) {
-      const group = groups[numbers[i]];
-      if (group.length >= 3) {
-        return group.slice(0, 3);
-      }
-    }
-  }
-
-  if (handType === 'pair') {
-    for (let i = 0; i < numbers.length; i += 1) {
-      const group = groups[numbers[i]];
-      if (group.length >= 2) {
-        return group.slice(0, 2);
-      }
-    }
-  }
-
-  return cards.slice();
-}
-
-function orderPlayedCardsForDisplay(playedCards, scoringCards, handType) {
-  const scoringIds = {};
-  const orderedScoringCards = scoringCards.slice();
-
-  scoringCards.forEach(function(card) {
-    scoringIds[card.id] = true;
-  });
-
-  if (handType === 'straight' || handType === 'spirit_straight' || handType === 'same_element') {
-    orderedScoringCards.sort(function(a, b) {
-      return a.number - b.number;
-    });
-  }
-
-  return orderedScoringCards.concat(playedCards.filter(function(card) {
-    return !scoringIds[card.id];
-  }));
 }
 
 function clamp(value, min, max) {
@@ -1105,6 +1051,19 @@ class Game {
     this.startLevel();
   }
 
+  // 退出当前对局，返回开始主界面。
+  exitToStart() {
+    this.isResolving = false;
+    this.settlementAnimation = null;
+    this.centerFeedback = null;
+    this.deckModalOpen = false;
+    this.relicModalOpen = false;
+    this.matchInfoModalOpen = false;
+    this.matchInfoExampleType = null;
+    this.selectedIds = [];
+    this.state = 'start';
+  }
+
   // 开始当前关卡。
   startLevel() {
     this.monsterMaxHp = LEVEL_HP[this.level - 1];
@@ -1141,6 +1100,27 @@ class Game {
       }
       this.hand.push(this.deck.pop());
     }
+
+    this.sortHandCards();
+  }
+
+  // 手牌展示顺序：金、木、水、火、土；同元素按点数从小到大。
+  sortHandCards() {
+    const elementOrder = {};
+
+    ELEMENT_DISPLAY_ORDER.forEach(function(element, index) {
+      elementOrder[element] = index;
+    });
+
+    this.hand.sort(function(a, b) {
+      const elementDiff = elementOrder[a.element] - elementOrder[b.element];
+
+      if (elementDiff !== 0) {
+        return elementDiff;
+      }
+
+      return a.number - b.number;
+    });
   }
 
   // 响应当前页面的点击。
@@ -1465,8 +1445,8 @@ class Game {
     ctx.font = gameFont(18);
     ctx.textAlign = 'left';
     ctx.fillText('金币 ' + this.gold, 14, layout.headerY + 10);
-    this.drawButton('重新开始', canvasWidth - 94, layout.headerY - 4, 80, 28, '#7a3f35', function() {
-      this.restart();
+    this.drawButton('退出', canvasWidth - 78, layout.headerY - 4, 64, 28, '#7a3f35', function() {
+      this.exitToStart();
     }.bind(this));
   }
 
@@ -1954,11 +1934,12 @@ class Game {
     const canvasWidth = layout.canvasWidth;
     const canvasHeight = layout.canvasHeight;
     const modalW = Math.min(canvasWidth - 28, 340);
-    const modalH = 294;
+    const rowH = 26;
+    const listH = HAND_TYPES.length * rowH;
+    const modalH = Math.min(canvasHeight - layout.topPadding - 24, Math.max(320, 56 + listH + 12));
     const modalX = Math.floor((canvasWidth - modalW) / 2);
-    const modalY = Math.max(layout.topPadding + 18, Math.floor((canvasHeight - modalH) / 2));
+    const modalY = Math.max(layout.topPadding + 12, Math.floor((canvasHeight - modalH) / 2));
     const rowY = modalY + 56;
-    const rowH = 34;
 
     ctx.fillStyle = 'rgba(47, 33, 24, 0.55)';
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -2012,12 +1993,12 @@ class Game {
       strokeRoundedRect(ctx, modalX + 14, y, modalW - 28, rowH - 4, 8, '#d0b486', 1);
 
       ctx.fillStyle = '#2f2118';
-      ctx.font = gameFont(15);
+      ctx.font = gameFont(13);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillText(handType.name, modalX + 26, y + (rowH - 4) / 2);
 
-      ctx.font = gameFont(14);
+      ctx.font = gameFont(12);
       ctx.textAlign = 'center';
       ctx.fillText(handType.baseScore + ' x ' + handType.multiplier, modalX + modalW / 2 + 18, y + (rowH - 4) / 2);
 
