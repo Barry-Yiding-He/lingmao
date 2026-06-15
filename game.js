@@ -22,12 +22,36 @@ const createHandTypeCounts = handEvaluator.createHandTypeCounts;
 const evaluateHand = handEvaluator.evaluateHand;
 const getScoringCards = handEvaluator.getScoringCards;
 const orderPlayedCardsForDisplay = handEvaluator.orderPlayedCardsForDisplay;
+const controlsElement = handEvaluator.controlsElement;
+const isControlledBy = handEvaluator.isControlledBy;
 
 const RELICS = relicConfig.RELICS;
 const GAME_IMAGE_PATHS = bossConfig.GAME_IMAGE_PATHS;
 const MONSTER_LAYOUT = bossConfig.MONSTER_LAYOUT;
 
+const HOME_NAV_ITEMS = [
+  { label: '图鉴', state: 'codex' },
+  { label: '牌型升级', state: 'hand_upgrade' },
+  { label: '战斗', state: 'start' },
+  { label: '猫窝', state: 'cat_home' },
+  { label: '召唤', state: 'summon' }
+];
+
 const GAME_FONT_PATH = 'assets/ZCOOLKuaiLe-Regular.ttf';
+const INITIAL_HAND_SIZE = 5;
+const MAX_HAND_SIZE = 6;
+const MAX_SELECTED_CARDS = 3;
+const STARTING_ACTION_COUNT = 4;
+const BASE_CARD_SPIRIT = 5;
+const BASE_MOMENTUM = 1;
+const FIRE_MOMENTUM_GAIN = 0.2;
+const WOOD_SPIRIT_GAIN = 2;
+const METAL_POINT_GAIN = 1;
+const EARTH_THREE_CARD_BONUS = 5;
+const SUN_SOUL_BONUS = 10;
+const ELEMENT_ADVANTAGE_DAMAGE_MULTIPLIER = 1.5;
+const ELEMENT_DISADVANTAGE_DAMAGE_MULTIPLIER = 0.5;
+const TWO_CONTROL_SHIELD_RATIO = 0.25;
 let GAME_FONT_FAMILY = 'sans-serif';
 
 function gameFont(size) {
@@ -73,209 +97,49 @@ function makeExampleCard(element, number, index) {
 
 // 比赛信息「牌型示例」用的一组符牌（与 evaluateHand 判定一致）。
 function createHandTypeExampleCards(handType) {
-  if (handType === 'royal_flush') {
-    return [6, 7, 8, 9, 10].map(function(n, i) {
-      return makeExampleCard('fire', n, i);
-    });
-  }
-
-  if (handType === 'straight_flush') {
-    return [2, 3, 4, 5, 6].map(function(n, i) {
-      return makeExampleCard('water', n, i);
-    });
-  }
-
-  if (handType === 'four_kind') {
+  if (handType === 'flush') {
     return [
-      makeExampleCard('fire', 8, 0),
-      makeExampleCard('water', 8, 1),
-      makeExampleCard('wood', 8, 2),
-      makeExampleCard('metal', 8, 3),
-      makeExampleCard('earth', 2, 4)
+      makeExampleCard('metal', 0, 0),
+      makeExampleCard('metal', 0, 1),
+      makeExampleCard('metal', 0, 2)
     ];
   }
 
-  if (handType === 'full_house') {
+  if (handType === 'birth_chain') {
     return [
-      makeExampleCard('fire', 8, 0),
-      makeExampleCard('water', 8, 1),
-      makeExampleCard('wood', 8, 2),
-      makeExampleCard('metal', 5, 3),
-      makeExampleCard('earth', 5, 4)
+      makeExampleCard('wood', 0, 0),
+      makeExampleCard('water', 0, 1),
+      makeExampleCard('fire', 0, 2)
     ];
   }
 
-  if (handType === 'fire_five') {
-    return [1, 3, 5, 7, 9].map(function(n, i) {
-      return makeExampleCard('fire', n, i);
-    });
-  }
-
-  if (handType === 'water_five') {
-    return [2, 4, 6, 8, 10].map(function(n, i) {
-      return makeExampleCard('water', n, i);
-    });
-  }
-
-  if (handType === 'wood_five') {
-    return [1, 2, 4, 7, 9].map(function(n, i) {
-      return makeExampleCard('wood', n, i);
-    });
-  }
-
-  if (handType === 'metal_five') {
-    return [3, 5, 6, 8, 10].map(function(n, i) {
-      return makeExampleCard('metal', n, i);
-    });
-  }
-
-  if (handType === 'earth_five') {
-    return [1, 4, 5, 6, 10].map(function(n, i) {
-      return makeExampleCard('earth', n, i);
-    });
-  }
-
-  if (handType === 'fire_earth') {
+  if (handType === 'control_chain') {
     return [
-      makeExampleCard('fire', 1, 0),
-      makeExampleCard('fire', 3, 1),
-      makeExampleCard('fire', 5, 2),
-      makeExampleCard('earth', 2, 3),
-      makeExampleCard('earth', 4, 4)
+      makeExampleCard('metal', 0, 0),
+      makeExampleCard('wood', 0, 1),
+      makeExampleCard('earth', 0, 2)
     ];
   }
 
-  if (handType === 'metal_water') {
+  if (handType === 'two_birth') {
     return [
-      makeExampleCard('metal', 2, 0),
-      makeExampleCard('metal', 4, 1),
-      makeExampleCard('metal', 6, 2),
-      makeExampleCard('water', 3, 3),
-      makeExampleCard('water', 5, 4)
+      makeExampleCard('wood', 0, 0),
+      makeExampleCard('water', 0, 1)
     ];
   }
 
-  if (handType === 'water_wood') {
+  if (handType === 'two_control') {
     return [
-      makeExampleCard('water', 1, 0),
-      makeExampleCard('water', 3, 1),
-      makeExampleCard('water', 5, 2),
-      makeExampleCard('wood', 2, 3),
-      makeExampleCard('wood', 4, 4)
+      makeExampleCard('metal', 0, 0),
+      makeExampleCard('wood', 0, 1)
     ];
   }
 
-  if (handType === 'wood_fire') {
-    return [
-      makeExampleCard('wood', 2, 0),
-      makeExampleCard('wood', 4, 1),
-      makeExampleCard('wood', 6, 2),
-      makeExampleCard('fire', 3, 3),
-      makeExampleCard('fire', 5, 4)
-    ];
+  if (handType === 'sun_soul') {
+    return [makeExampleCard('metal', 0, 0)];
   }
 
-  if (handType === 'earth_metal') {
-    return [
-      makeExampleCard('earth', 1, 0),
-      makeExampleCard('earth', 3, 1),
-      makeExampleCard('earth', 5, 2),
-      makeExampleCard('metal', 2, 3),
-      makeExampleCard('metal', 4, 4)
-    ];
-  }
-
-  if (handType === 'metal_wood') {
-    return [
-      makeExampleCard('metal', 3, 0),
-      makeExampleCard('metal', 5, 1),
-      makeExampleCard('metal', 7, 2),
-      makeExampleCard('wood', 2, 3),
-      makeExampleCard('wood', 4, 4)
-    ];
-  }
-
-  if (handType === 'wood_earth') {
-    return [
-      makeExampleCard('wood', 1, 0),
-      makeExampleCard('wood', 3, 1),
-      makeExampleCard('wood', 5, 2),
-      makeExampleCard('earth', 2, 3),
-      makeExampleCard('earth', 4, 4)
-    ];
-  }
-
-  if (handType === 'earth_water') {
-    return [
-      makeExampleCard('earth', 2, 0),
-      makeExampleCard('earth', 4, 1),
-      makeExampleCard('earth', 6, 2),
-      makeExampleCard('water', 3, 3),
-      makeExampleCard('water', 5, 4)
-    ];
-  }
-
-  if (handType === 'water_fire') {
-    return [
-      makeExampleCard('water', 2, 0),
-      makeExampleCard('water', 4, 1),
-      makeExampleCard('water', 6, 2),
-      makeExampleCard('fire', 3, 3),
-      makeExampleCard('fire', 5, 4)
-    ];
-  }
-
-  if (handType === 'fire_metal') {
-    return [
-      makeExampleCard('fire', 1, 0),
-      makeExampleCard('fire', 3, 1),
-      makeExampleCard('fire', 5, 2),
-      makeExampleCard('metal', 2, 3),
-      makeExampleCard('metal', 4, 4)
-    ];
-  }
-
-  if (handType === 'straight') {
-    return [
-      makeExampleCard('water', 3, 0),
-      makeExampleCard('wood', 4, 1),
-      makeExampleCard('fire', 5, 2),
-      makeExampleCard('metal', 6, 3),
-      makeExampleCard('earth', 7, 4)
-    ];
-  }
-
-  if (handType === 'triple') {
-    return [
-      makeExampleCard('fire', 8, 0),
-      makeExampleCard('water', 8, 1),
-      makeExampleCard('wood', 8, 2),
-      makeExampleCard('metal', 2, 3),
-      makeExampleCard('earth', 4, 4)
-    ];
-  }
-
-  if (handType === 'two_pair') {
-    return [
-      makeExampleCard('fire', 6, 0),
-      makeExampleCard('water', 6, 1),
-      makeExampleCard('wood', 4, 2),
-      makeExampleCard('metal', 4, 3),
-      makeExampleCard('earth', 2, 4)
-    ];
-  }
-
-  if (handType === 'pair') {
-    return [
-      makeExampleCard('fire', 6, 0),
-      makeExampleCard('water', 6, 1),
-      makeExampleCard('wood', 2, 2),
-      makeExampleCard('metal', 4, 3),
-      makeExampleCard('earth', 5, 4)
-    ];
-  }
-
-  return [makeExampleCard('fire', 9, 0)];
+  return [makeExampleCard('fire', 0, 0)];
 }
 
 const canvas = wx.createCanvas();
@@ -295,10 +159,11 @@ function createLevelDeck() {
   const deck = [];
 
   ELEMENTS.forEach(function(element) {
-    for (let number = 1; number <= 10; number += 1) {
+    for (let serial = 1; serial <= 8; serial += 1) {
       deck.push({
-        id: element + '_' + number + '_' + Date.now() + '_' + Math.random(),
-        number: number,
+        id: element + '_' + serial + '_' + Date.now() + '_' + Math.random(),
+        serial: serial,
+        number: 0,
         element: element
       });
     }
@@ -338,6 +203,128 @@ function formatMultiplier(value) {
   return Math.round(value * 10) / 10;
 }
 
+function formatAmount(value) {
+  return Number.isInteger(value) ? String(value) : String(Math.round(value * 10) / 10);
+}
+
+function createElementBonuses() {
+  const bonuses = {};
+
+  ELEMENTS.forEach(function(element) {
+    bonuses[element] = 0;
+  });
+
+  return bonuses;
+}
+
+function createLevelElementBonuses(previousBonuses) {
+  const bonuses = createElementBonuses();
+
+  if (previousBonuses) {
+    bonuses.metal = previousBonuses.metal || 0;
+  }
+
+  return bonuses;
+}
+
+function pickRandomElement() {
+  return ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)];
+}
+
+function getCardPower(card, elementBonuses) {
+  const cardPower = card && typeof card.number === 'number' ? card.number : 0;
+  const elementPower = card && elementBonuses ? (elementBonuses[card.element] || 0) : 0;
+
+  return cardPower + elementPower;
+}
+
+function getCardDisplayText(card) {
+  const power = card && typeof card.displayPower === 'number'
+    ? card.displayPower
+    : getCardPower(card);
+  return power > 0 ? '+' + power : '';
+}
+
+function getBattleSideButtonLayout(layout) {
+  const buttonW = Math.max(42, Math.floor(layout.canvasWidth * 0.11));
+  const buttonH = Math.max(34, Math.floor(layout.hpBarHeight * 1.45));
+  const rightPadding = Math.max(8, Math.floor(layout.canvasWidth * 0.025));
+  const x = layout.canvasWidth - buttonW - rightPadding;
+  const y = layout.hpBarY + Math.floor((layout.hpBarHeight - buttonH) / 2);
+  const gap = Math.max(8, Math.floor(layout.canvasHeight * 0.012));
+
+  return {
+    x: x,
+    y: y,
+    w: buttonW,
+    h: buttonH,
+    gap: gap
+  };
+}
+
+function getHpBarLayout(layout) {
+  const sideButton = getBattleSideButtonLayout(layout);
+  const leftPadding = Math.max(40, Math.floor(layout.canvasWidth * 0.15));
+  const rightGap = Math.max(8, Math.floor(layout.canvasWidth * 0.018));
+  const rightLimit = sideButton.x - rightGap;
+  const hpX = leftPadding;
+  const hpW = Math.max(120, rightLimit - hpX);
+
+  return {
+    x: hpX,
+    y: layout.hpBarY,
+    w: hpW,
+    h: layout.hpBarHeight
+  };
+}
+
+function estimateHandSpirit(cards, result, elementBonuses) {
+  if (!cards || !cards.length || !result) {
+    return { spirit: 0, momentum: BASE_MOMENTUM, handSpirit: 0 };
+  }
+
+  const catTriggerCount = result.type === 'flush' ? 2 : 1;
+  const bonusPreview = Object.assign(createElementBonuses(), elementBonuses || {});
+  let spirit = 0;
+  let momentum = BASE_MOMENTUM;
+
+  cards.forEach(function(card, index) {
+    let gain = BASE_CARD_SPIRIT + getCardPower(card, bonusPreview);
+
+    if (result.type === 'sun_soul' && index === 0) {
+      gain += SUN_SOUL_BONUS;
+    }
+
+    if (card.element === 'wood') {
+      const elementGain = WOOD_SPIRIT_GAIN * catTriggerCount;
+      gain += elementGain;
+      bonusPreview[card.element] = (bonusPreview[card.element] || 0) + elementGain;
+    }
+
+    if (card.element === 'metal') {
+      const elementGain = METAL_POINT_GAIN * catTriggerCount;
+      gain += elementGain;
+      bonusPreview[card.element] = (bonusPreview[card.element] || 0) + elementGain;
+    }
+
+    if (card.element === 'earth' && cards.length === 3) {
+      gain += EARTH_THREE_CARD_BONUS * catTriggerCount;
+    }
+
+    spirit += gain;
+
+    if (card.element === 'fire') {
+      momentum += FIRE_MOMENTUM_GAIN * catTriggerCount;
+    }
+  });
+
+  return {
+    spirit: spirit,
+    momentum: momentum,
+    handSpirit: spirit * result.spiritMultiplier * momentum
+  };
+}
+
 function requestGameFrame(callback) {
   if (wx.requestAnimationFrame) {
     return wx.requestAnimationFrame(callback);
@@ -373,42 +360,90 @@ function getCardRelicEvents(card, context, relics) {
   return events;
 }
 
-function createSettlementTimeline(scoringCards, context, relics) {
-  let base = context.baseScore;
-  let multiplier = context.rawMultiplier || context.multiplier;
-  const steps = scoringCards.map(function(card) {
-    const relicEvents = getCardRelicEvents(card, context, relics);
-    const relicAffectsStats = relicEvents.some(function(event) {
-      return (event.stat === 'base' && event.amount) || (event.stat === 'multiplier' && event.amount);
-    });
-    const step = {
+function createSettlementTimeline(playedCards, context) {
+  let spirit = 0;
+  let momentum = BASE_MOMENTUM;
+  const steps = [];
+  const catTriggerCount = context.result.type === 'flush' ? 2 : 1;
+  const elementBonuses = context.elementBonuses || createElementBonuses();
+  const initialElementBonuses = Object.assign(createElementBonuses(), elementBonuses);
+
+  function pushStep(card, spiritGain, momentumGain, updatesCardPower, spiritBadgeText, elementBonusesBefore) {
+    const spiritBefore = spirit;
+    const momentumBefore = momentum;
+
+    spirit += spiritGain;
+    momentum += momentumGain;
+
+    steps.push({
       card: card,
-      scoreBefore: base,
-      multiplierBefore: multiplier,
-      scoreGain: card.number,
-      relicEvents: relicEvents,
-      hasStatChange: card.number > 0 || relicAffectsStats
-    };
-
-    base += card.number;
-    relicEvents.forEach(function(event) {
-      if (event.stat === 'base') {
-        base += event.amount;
-      }
-      if (event.stat === 'multiplier') {
-        multiplier += event.amount;
-      }
+      scoreBefore: spiritBefore,
+      multiplierBefore: momentumBefore,
+      scoreGain: spiritGain,
+      momentumGain: momentumGain,
+      spiritBadgeText: spiritBadgeText || '',
+      scoreAfter: spirit,
+      multiplierAfter: momentum,
+      displayPowerAfter: getCardPower(card, elementBonuses),
+      elementBonusesBefore: Object.assign(createElementBonuses(), elementBonusesBefore || elementBonuses),
+      elementBonusesAfter: Object.assign(createElementBonuses(), elementBonuses),
+      updatesCardPower: !!updatesCardPower,
+      hasStatChange: spiritGain > 0 || momentumGain > 0 || updatesCardPower
     });
+  }
 
-    step.scoreAfter = base;
-    step.multiplierAfter = multiplier;
-    return step;
+  playedCards.forEach(function(card, cardIndex) {
+    const baseGain = BASE_CARD_SPIRIT + getCardPower(card, elementBonuses);
+    let firstTriggerBaseGain = baseGain;
+
+    if (context.result.type === 'sun_soul' && cardIndex === 0) {
+      firstTriggerBaseGain += SUN_SOUL_BONUS;
+    }
+
+    for (let triggerIndex = 0; triggerIndex < catTriggerCount; triggerIndex += 1) {
+      const elementBonusesBefore = Object.assign(createElementBonuses(), elementBonuses);
+      let spiritGain = triggerIndex === 0 ? firstTriggerBaseGain : 0;
+      let momentumGain = 0;
+      let updatesCardPower = false;
+      let spiritBadgeText = '';
+
+      if (card.element === 'wood') {
+        elementBonuses[card.element] = (elementBonuses[card.element] || 0) + WOOD_SPIRIT_GAIN;
+        spiritGain += WOOD_SPIRIT_GAIN;
+        updatesCardPower = true;
+        spiritBadgeText = '+' + formatAmount(elementBonuses[card.element]);
+      }
+
+      if (card.element === 'metal') {
+        elementBonuses[card.element] = (elementBonuses[card.element] || 0) + METAL_POINT_GAIN;
+        spiritGain += METAL_POINT_GAIN;
+        updatesCardPower = true;
+        spiritBadgeText = '+' + formatAmount(elementBonuses[card.element]);
+      }
+
+      if (card.element === 'earth' && playedCards.length === 3) {
+        spiritGain += EARTH_THREE_CARD_BONUS;
+      }
+
+      if (card.element === 'fire') {
+        momentumGain += FIRE_MOMENTUM_GAIN;
+      }
+
+      if (card.element === 'water') {
+        context.gainsTide = true;
+      }
+
+      pushStep(card, spiritGain, momentumGain, updatesCardPower, spiritBadgeText, elementBonusesBefore);
+    }
   });
 
   return {
     steps: steps,
-    finalBase: context.baseScore + context.faceTotal + context.bonusScore,
-    finalMultiplier: context.multiplier
+    finalBase: spirit,
+    finalMultiplier: momentum,
+    initialElementBonuses: initialElementBonuses,
+    finalElementBonuses: Object.assign(createElementBonuses(), elementBonuses),
+    handSpirit: spirit * context.result.spiritMultiplier * momentum
   };
 }
 
@@ -494,6 +529,101 @@ function drawElementSymbol(drawCtx, element, centerX, centerY, size, alpha) {
   drawCtx.restore();
 }
 
+function drawArrowLine(drawCtx, fromX, fromY, toX, toY, color, lineWidth, headSize) {
+  const angle = Math.atan2(toY - fromY, toX - fromX);
+  const arrowBackX = toX - Math.cos(angle) * headSize;
+  const arrowBackY = toY - Math.sin(angle) * headSize;
+
+  drawCtx.save();
+  drawCtx.strokeStyle = color;
+  drawCtx.fillStyle = color;
+  drawCtx.lineWidth = lineWidth;
+  drawCtx.lineCap = 'round';
+  drawCtx.beginPath();
+  drawCtx.moveTo(fromX, fromY);
+  drawCtx.lineTo(arrowBackX, arrowBackY);
+  drawCtx.stroke();
+
+  drawCtx.beginPath();
+  drawCtx.moveTo(toX, toY);
+  drawCtx.lineTo(
+    arrowBackX + Math.cos(angle + Math.PI / 2) * headSize * 0.45,
+    arrowBackY + Math.sin(angle + Math.PI / 2) * headSize * 0.45
+  );
+  drawCtx.lineTo(
+    arrowBackX + Math.cos(angle - Math.PI / 2) * headSize * 0.45,
+    arrowBackY + Math.sin(angle - Math.PI / 2) * headSize * 0.45
+  );
+  drawCtx.closePath();
+  drawCtx.fill();
+  drawCtx.restore();
+}
+
+function drawFiveElementDiagram(drawCtx, x, y, size) {
+  const centerX = x + size / 2;
+  const centerY = y + size / 2;
+  const radius = size * 0.36;
+  const iconSize = Math.max(13, size * 0.24);
+  const lineWidth = Math.max(1.5, size * 0.025);
+  const headSize = Math.max(5, size * 0.07);
+  const positions = {
+    metal: { x: centerX, y: centerY - radius },
+    water: { x: centerX + radius * 0.95, y: centerY - radius * 0.30 },
+    wood: { x: centerX + radius * 0.58, y: centerY + radius * 0.86 },
+    fire: { x: centerX - radius * 0.58, y: centerY + radius * 0.86 },
+    earth: { x: centerX - radius * 0.95, y: centerY - radius * 0.30 }
+  };
+  const birth = ['wood', 'fire', 'earth', 'metal', 'water'];
+  const control = ['metal', 'wood', 'earth', 'water', 'fire'];
+
+  drawCtx.save();
+  drawCtx.globalAlpha = 0.92;
+  birth.forEach(function(element, index) {
+    const next = birth[(index + 1) % birth.length];
+    const from = positions[element];
+    const to = positions[next];
+    drawArrowLine(
+      drawCtx,
+      from.x + (to.x - from.x) * 0.22,
+      from.y + (to.y - from.y) * 0.22,
+      from.x + (to.x - from.x) * 0.75,
+      from.y + (to.y - from.y) * 0.75,
+      '#3f9b61',
+      lineWidth,
+      headSize
+    );
+  });
+
+  control.forEach(function(element, index) {
+    const next = control[(index + 1) % control.length];
+    const from = positions[element];
+    const to = positions[next];
+    drawArrowLine(
+      drawCtx,
+      from.x + (to.x - from.x) * 0.30,
+      from.y + (to.y - from.y) * 0.30,
+      from.x + (to.x - from.x) * 0.66,
+      from.y + (to.y - from.y) * 0.66,
+      '#b34a43',
+      Math.max(1.2, lineWidth * 0.85),
+      Math.max(4, headSize * 0.85)
+    );
+  });
+
+  Object.keys(positions).forEach(function(element) {
+    const point = positions[element];
+    drawCtx.fillStyle = '#fffaf0';
+    drawCtx.beginPath();
+    drawCtx.arc(point.x, point.y, iconSize * 0.54, 0, Math.PI * 2);
+    drawCtx.fill();
+    drawCtx.strokeStyle = ELEMENT_COLORS[element];
+    drawCtx.lineWidth = Math.max(1, size * 0.018);
+    drawCtx.stroke();
+    drawElementSymbol(drawCtx, element, point.x, point.y, iconSize * 0.74, 0.95);
+  });
+  drawCtx.restore();
+}
+
 // 绘制单张符牌。
 function drawCard(drawCtx, card, x, y, selected, cardWidth, cardHeight) {
   const w = cardWidth || 40;
@@ -530,7 +660,7 @@ function drawCard(drawCtx, card, x, y, selected, cardWidth, cardHeight) {
   drawCtx.font = gameFont(Math.max(14, Math.floor(w * 0.28)));
   drawCtx.textAlign = 'left';
   drawCtx.textBaseline = 'top';
-  drawCtx.fillText(card.number, x + 6, cardY + 5);
+  drawCtx.fillText(getCardDisplayText(card), x + 6, cardY + 5);
 
   drawCtx.restore();
 }
@@ -546,7 +676,7 @@ function drawMiniDeckCard(drawCtx, card, x, y, w, h) {
   drawCtx.font = gameFont(Math.max(10, Math.floor(w * 0.55)));
   drawCtx.textAlign = 'right';
   drawCtx.textBaseline = 'top';
-  drawCtx.fillText(card.number, x + w - 3, y + 2);
+  drawCtx.fillText(getCardDisplayText(card), x + w - 3, y + 2);
   drawCtx.restore();
 }
 
@@ -573,7 +703,7 @@ function drawPlayedCard(drawCtx, card, x, y, w, h) {
   drawCtx.font = gameFont(Math.max(13, Math.floor(w * 0.34)));
   drawCtx.textAlign = 'left';
   drawCtx.textBaseline = 'top';
-  drawCtx.fillText(card.number, x + 5, y + 4);
+  drawCtx.fillText(getCardDisplayText(card), x + 5, y + 4);
 
   drawCtx.restore();
 }
@@ -608,9 +738,12 @@ class Game {
     this.level = 1;
     this.monsterMaxHp = LEVEL_HP[0];
     this.monsterHp = this.monsterMaxHp;
+    this.monsterMaxShield = Math.floor(this.monsterMaxHp / 2);
+    this.monsterShield = this.monsterMaxShield;
+    this.bossElement = pickRandomElement();
     this.currentScore = 0;
-    this.handsLeft = 4;
-    this.discardsLeft = 4;
+    this.handsLeft = STARTING_ACTION_COUNT;
+    this.discardsLeft = STARTING_ACTION_COUNT;
     this.gold = 10;
     this.deck = [];
     this.hand = [];
@@ -632,6 +765,9 @@ class Game {
     this.hammerAudio = null;
     this.ambientAnimationRunning = false;
     this.firstHandPlayed = false;
+    this.hasTide = false;
+    this.pendingTideDraw = false;
+    this.elementBonuses = createElementBonuses();
     this.touchAreas = [];
     this.systemInfo = wx.getSystemInfoSync();
     this.layout = null;
@@ -850,94 +986,48 @@ class Game {
       }
     }
 
+    const scale = Math.min(canvasWidth / 360, canvasHeight / 802);
     const topPadding = safeArea
-      ? Math.max(safeTop, menuBottom || safeTop) + 12
-      : (menuBottom ? menuBottom + 12 : 32);
-    const bottomPadding = 10;
-    const headerHeight = 34;
-    const hpBarHeight = MONSTER_LAYOUT.hpHeight;
-    const calculationHeight = 46;
-    const actionButtonsHeight = 62;
-    let playAreaHeight = 92;
-    let handCardsHeight = 150;
+      ? Math.max(safeTop, menuBottom || safeTop) + Math.round(8 * scale)
+      : (menuBottom ? menuBottom + Math.round(8 * scale) : Math.round(30 * scale));
+    const bottomPadding = Math.max(8, Math.round(10 * scale));
+    const sectionGap = Math.max(5, Math.round(7 * scale));
+    const headerHeight = Math.max(32, Math.round(canvasHeight * 0.055));
+    const hpBarHeight = Math.max(20, Math.round(canvasHeight * 0.030));
+    const calculationHeight = Math.max(48, Math.round(canvasHeight * 0.060));
+    const playAreaHeight = Math.max(66, Math.round(canvasHeight * 0.088));
+    const deckPreviewHeight = Math.max(50, Math.round(canvasHeight * 0.070));
+    const actionButtonsHeight = Math.max(54, Math.round(canvasHeight * 0.075));
+    const handSlotGap = Math.max(4, Math.min(8, Math.floor(canvasWidth * 0.014)));
+    const handAvailableWidth = Math.max(220, canvasWidth - 28);
+    const handCardWidth = Math.max(42, Math.min(68, Math.floor((handAvailableWidth - handSlotGap * (MAX_HAND_SIZE - 1)) / MAX_HAND_SIZE)));
+    const handCardHeight = Math.floor(handCardWidth * 1.42);
+    let handCardsHeight = handCardHeight + Math.max(14, Math.round(canvasHeight * 0.018));
 
-    const oldHandAreaTop = canvasHeight - bottomSafeInset - handCardsHeight - bottomPadding;
-    const oldActionButtonsY = oldHandAreaTop - actionButtonsHeight - 8;
-    const oldPlayAreaBottom = oldActionButtonsY - 8;
-    const oldPlayAreaY = oldPlayAreaBottom - playAreaHeight;
-    const oldCalculationY = oldPlayAreaY - 8 - calculationHeight;
-    const sectionGap = oldPlayAreaY - (oldCalculationY + calculationHeight);
-
-    const minMonsterHeight = MONSTER_LAYOUT.monsterMinHeight;
-    const minPlayAreaHeight = 74;
-    const minHandCardsHeight = 112;
-    const availableContentHeight = canvasHeight - bottomSafeInset - bottomPadding - topPadding;
-    const fixedGapHeight = sectionGap * 6;
-    let monsterHeight = availableContentHeight -
-      headerHeight -
-      hpBarHeight -
-      calculationHeight -
-      playAreaHeight -
-      actionButtonsHeight -
-      handCardsHeight -
-      fixedGapHeight;
-
-    if (monsterHeight < minMonsterHeight) {
-      let shortage = minMonsterHeight - monsterHeight;
-      const playShrink = Math.min(shortage, playAreaHeight - minPlayAreaHeight);
-      playAreaHeight -= playShrink;
-      shortage -= playShrink;
-
-      const handShrink = Math.min(shortage, handCardsHeight - minHandCardsHeight);
-      handCardsHeight -= handShrink;
-      shortage -= handShrink;
-
-      monsterHeight = availableContentHeight -
-        headerHeight -
-        hpBarHeight -
-        calculationHeight -
-        playAreaHeight -
-        actionButtonsHeight -
-        handCardsHeight -
-        fixedGapHeight;
-      monsterHeight = Math.max(40, monsterHeight);
-    }
-
-    let totalLayoutHeight = headerHeight +
-      monsterHeight +
-      hpBarHeight +
-      calculationHeight +
-      playAreaHeight +
-      actionButtonsHeight +
-      handCardsHeight +
-      fixedGapHeight;
-
-    if (totalLayoutHeight > availableContentHeight) {
-      let overflow = totalLayoutHeight - availableContentHeight;
-      const handExtraShrink = Math.min(overflow, handCardsHeight - 88);
-      handCardsHeight -= handExtraShrink;
-      overflow -= handExtraShrink;
-
-      const playExtraShrink = Math.min(overflow, playAreaHeight - 64);
-      playAreaHeight -= playExtraShrink;
-      overflow -= playExtraShrink;
-
-      monsterHeight = Math.max(32, monsterHeight - overflow);
-    }
-
+    const bottomLimit = canvasHeight - bottomSafeInset - bottomPadding;
+    const actionButtonsY = bottomLimit - actionButtonsHeight;
+    let handCardsY = actionButtonsY - handCardsHeight;
+    let deckPreviewY = handCardsY - deckPreviewHeight;
+    let playAreaY = deckPreviewY - playAreaHeight - sectionGap;
+    let calculationY = playAreaY - calculationHeight - sectionGap;
     const headerY = topPadding;
-    const monsterY = headerY + headerHeight + sectionGap;
-    const hpBarY = monsterY + monsterHeight + sectionGap;
-    const calculationY = hpBarY + hpBarHeight + sectionGap;
-    const playAreaY = calculationY + calculationHeight + sectionGap;
-    const actionButtonsY = playAreaY + playAreaHeight + sectionGap;
-    const handCardsY = actionButtonsY + actionButtonsHeight + sectionGap;
     const topBarBottom = headerY + headerHeight;
-    const availableWidth = Math.max(220, canvasWidth - 28);
-    const availableHeight = Math.max(90, handCardsHeight - 18);
-    const handCardHeight = Math.max(86, Math.min(126, availableHeight));
-    const handCardWidth = Math.max(54, Math.min(78, Math.floor(handCardHeight * 0.68), Math.floor(availableWidth * 0.24)));
-    const handCardGap = Math.max(18, Math.min(34, Math.floor(handCardWidth * 0.48)));
+    const hpBarY = topBarBottom + Math.max(10, Math.round(canvasHeight * 0.024));
+    const monsterY = hpBarY + hpBarHeight + sectionGap;
+    let monsterHeight = calculationY - monsterY - sectionGap;
+
+    if (monsterHeight < MONSTER_LAYOUT.monsterMinHeight) {
+      const shortage = MONSTER_LAYOUT.monsterMinHeight - monsterHeight;
+      handCardsHeight = Math.max(92, handCardsHeight - shortage);
+      monsterHeight = MONSTER_LAYOUT.monsterMinHeight;
+    }
+
+    handCardsY = actionButtonsY - handCardsHeight;
+    deckPreviewY = handCardsY - deckPreviewHeight;
+    playAreaY = deckPreviewY - playAreaHeight - sectionGap;
+    calculationY = playAreaY - calculationHeight - sectionGap;
+    monsterHeight = Math.max(48, calculationY - monsterY - sectionGap);
+    const handCardGap = handSlotGap;
 
     this.layout = {
       canvasWidth: canvasWidth,
@@ -956,6 +1046,8 @@ class Game {
       calculationHeight: calculationHeight,
       playAreaY: playAreaY,
       playAreaHeight: playAreaHeight,
+      deckPreviewY: deckPreviewY,
+      deckPreviewHeight: deckPreviewHeight,
       actionButtonsY: actionButtonsY,
       actionButtonsHeight: actionButtonsHeight,
       handCardsY: handCardsY,
@@ -965,7 +1057,7 @@ class Game {
       handCardGap: handCardGap,
       formulaY: calculationY,
       monsterAreaTop: monsterY,
-      monsterAreaBottom: hpBarY + hpBarHeight,
+      monsterAreaBottom: monsterY + monsterHeight,
       playAreaTop: playAreaY,
       playAreaBottom: playAreaY + playAreaHeight,
       handAreaTop: handCardsY,
@@ -976,19 +1068,6 @@ class Game {
       cardGap: handCardGap
     };
 
-    if (!this.layoutLogged) {
-      console.log("layout", this.layout);
-      console.log("layout gaps", {
-        monster: this.layout.monsterY - (this.layout.headerY + this.layout.headerHeight),
-        hpBar: this.layout.hpBarY - (this.layout.monsterY + this.layout.monsterHeight),
-        calculation: this.layout.calculationY - (this.layout.hpBarY + this.layout.hpBarHeight),
-        playArea: this.layout.playAreaY - (this.layout.calculationY + this.layout.calculationHeight),
-        actionButtons: this.layout.actionButtonsY - (this.layout.playAreaY + this.layout.playAreaHeight),
-        handCards: this.layout.handCardsY - (this.layout.actionButtonsY + this.layout.actionButtonsHeight),
-        sectionGap: this.layout.sectionGap
-      });
-      this.layoutLogged = true;
-    }
   }
 
   // 绑定微信小游戏触摸事件。
@@ -999,7 +1078,7 @@ class Game {
       if (point) {
         self.handleTouch(point);
       }
-    });
+    }, this);
   }
 
   getLevelInfo() {
@@ -1048,6 +1127,7 @@ class Game {
     this.matchInfoModalOpen = false;
     this.matchInfoExampleType = null;
     this.selectedRelicId = RELICS[0] ? RELICS[0].id : null;
+    this.elementBonuses = createElementBonuses();
     this.startLevel();
   }
 
@@ -1064,15 +1144,34 @@ class Game {
     this.state = 'start';
   }
 
+  // 切换主界面底部导航页。
+  openHomeTab(state) {
+    this.isResolving = false;
+    this.settlementAnimation = null;
+    this.centerFeedback = null;
+    this.deckModalOpen = false;
+    this.relicModalOpen = false;
+    this.matchInfoModalOpen = false;
+    this.matchInfoExampleType = null;
+    this.selectedIds = [];
+    this.state = state;
+  }
+
   // 开始当前关卡。
   startLevel() {
     this.monsterMaxHp = LEVEL_HP[this.level - 1];
     this.monsterHp = this.monsterMaxHp;
+    this.monsterMaxShield = Math.floor(this.monsterMaxHp / 2);
+    this.monsterShield = this.monsterMaxShield;
+    this.bossElement = pickRandomElement();
     this.visualMonsterHp = this.monsterHp;
     this.currentScore = 0;
-    this.handsLeft = 4;
-    this.discardsLeft = 4;
+    this.handsLeft = STARTING_ACTION_COUNT;
+    this.discardsLeft = STARTING_ACTION_COUNT;
     this.firstHandPlayed = false;
+    this.hasTide = false;
+    this.pendingTideDraw = false;
+    this.elementBonuses = createLevelElementBonuses(this.elementBonuses);
     this.selectedIds = [];
     this.deck = [];
     this.hand = [];
@@ -1089,16 +1188,42 @@ class Game {
 
     this.deck = createLevelDeck();
 
-    this.drawCardsToHand();
+    this.drawCards();
   }
 
-  // 从牌组补到 8 张手牌。
-  drawCardsToHand() {
-    while (this.hand.length < 8) {
+  // 每次行动后补到5张；若行动开始时已有灵潮，则本次最多补到6张并消耗灵潮。
+  drawCards() {
+    let targetHandSize = INITIAL_HAND_SIZE;
+
+    if (this.pendingTideDraw || this.hasTide) {
+      targetHandSize = MAX_HAND_SIZE;
+      this.pendingTideDraw = false;
+      this.hasTide = false;
+    }
+
+    targetHandSize = Math.min(MAX_HAND_SIZE, targetHandSize);
+    let drawCount = Math.max(0, targetHandSize - this.hand.length);
+
+    while (drawCount > 0) {
       if (this.deck.length === 0) {
         break;
       }
       this.hand.push(this.deck.pop());
+      drawCount -= 1;
+    }
+
+    this.sortHandCards();
+  }
+
+  drawExactCards(count) {
+    let drawCount = Math.max(0, Math.min(count || 0, MAX_HAND_SIZE - this.hand.length));
+
+    while (drawCount > 0) {
+      if (this.deck.length === 0) {
+        break;
+      }
+      this.hand.push(this.deck.pop());
+      drawCount -= 1;
     }
 
     this.sortHandCards();
@@ -1119,7 +1244,7 @@ class Game {
         return elementDiff;
       }
 
-      return a.number - b.number;
+      return (a.serial || 0) - (b.serial || 0);
     });
   }
 
@@ -1153,6 +1278,11 @@ class Game {
       return;
     }
 
+    if (this.selectedIds.length >= MAX_SELECTED_CARDS) {
+      this.lastResultText = '最多只能选择 ' + MAX_SELECTED_CARDS + ' 张符牌';
+      return;
+    }
+
     this.selectedIds.push(card.id);
   }
 
@@ -1172,14 +1302,18 @@ class Game {
       return;
     }
 
-    if (this.selectedIds.length > 5) {
-      this.lastResultText = '出牌最多只能选择 5 张符牌';
+    if (this.selectedIds.length > MAX_SELECTED_CARDS) {
+      this.lastResultText = '出牌最多只能选择 ' + MAX_SELECTED_CARDS + ' 张符牌';
       return;
     }
 
-    const selectedCards = this.hand.filter(function(card) {
-      return this.selectedIds.indexOf(card.id) >= 0;
-    }, this);
+    const selectedCards = this.selectedIds.map(function(id) {
+      return this.hand.find(function(card) {
+        return card.id === id;
+      });
+    }, this).filter(function(card) {
+      return !!card;
+    });
 
     if (selectedCards.length === 0) {
       this.selectedIds = [];
@@ -1187,44 +1321,66 @@ class Game {
       return;
     }
 
-    const result = evaluateHand(selectedCards);
+    const result = evaluateHand(selectedCards, this.bossElement);
     const scoringCards = getScoringCards(selectedCards, result.type);
     const orderedPlayed = orderPlayedCardsForDisplay(selectedCards, scoringCards, result.type);
-    const orderedScoring = orderedPlayed.slice(0, scoringCards.length);
-    const faceTotal = orderedScoring.reduce(function(sum, card) {
-      return sum + card.number;
-    }, 0);
 
     let context = {
-      selectedCards: orderedScoring,
+      result: result,
+      selectedCards: orderedPlayed,
       playedCards: orderedPlayed,
       handType: result.type,
       handName: result.name,
-      faceTotal: faceTotal,
-      baseScore: result.baseScore,
-      bonusScore: 0,
-      rawMultiplier: result.multiplier,
-      multiplier: result.multiplier,
+      enchantElement: result.enchantElement,
+      gainsTide: false,
+      elementBonuses: this.elementBonuses,
       goldGain: 1,
       isFirstHandOfLevel: !this.firstHandPlayed
     };
 
-    context = applyRelics(context, this.relics);
+    const timeline = createSettlementTimeline(orderedPlayed, context);
+    const handSpirit = timeline.handSpirit;
+    const spiritPoolBefore = this.currentScore;
+    const spiritPoolAfter = spiritPoolBefore + handSpirit;
+    const attackElement = context.enchantElement;
+    let damageMultiplier = 1;
 
-    const finalScore = Math.floor((context.baseScore + context.faceTotal + context.bonusScore) * context.multiplier);
+    if (attackElement && controlsElement(attackElement, this.bossElement)) {
+      damageMultiplier = ELEMENT_ADVANTAGE_DAMAGE_MULTIPLIER;
+    } else if (attackElement && isControlledBy(attackElement, this.bossElement)) {
+      damageMultiplier = ELEMENT_DISADVANTAGE_DAMAGE_MULTIPLIER;
+    }
+
+    const finalScore = Math.floor(spiritPoolAfter * damageMultiplier);
     let nextState = 'playing';
     const hpBefore = this.monsterHp;
-    const hpAfter = Math.max(0, this.monsterHp - finalScore);
-    const timeline = createSettlementTimeline(orderedScoring, context, this.relics);
+    const shieldBefore = this.monsterShield;
+    let remainingDamage = finalScore;
 
-    this.currentScore += finalScore;
+    if (result.type === 'two_control' && this.monsterShield > 0) {
+      this.monsterShield = Math.max(0, this.monsterShield - Math.floor(this.monsterMaxShield * TWO_CONTROL_SHIELD_RATIO));
+    }
+
+    if (result.type === 'control_chain') {
+      this.monsterHp = Math.max(0, this.monsterHp - remainingDamage);
+    } else {
+      const shieldDamage = Math.min(this.monsterShield, remainingDamage);
+      this.monsterShield -= shieldDamage;
+      remainingDamage -= shieldDamage;
+      this.monsterHp = Math.max(0, this.monsterHp - remainingDamage);
+    }
+
+    const hpAfter = this.monsterHp;
+    const shieldAfter = this.monsterShield;
+
+    this.currentScore = spiritPoolAfter;
     this.monsterHp = hpAfter;
     this.visualMonsterHp = hpBefore;
     this.gold += context.goldGain;
     this.handsLeft -= 1;
     this.handTypeCounts[result.type] = (this.handTypeCounts[result.type] || 0) + 1;
     this.firstHandPlayed = true;
-    this.lastResultText = result.name + ' +' + finalScore + ' 分，有效点数 ' + context.faceTotal + '，金币 +' + context.goldGain;
+    this.lastResultText = result.name + ' 入池+' + formatAmount(handSpirit) + '，灵力池' + formatAmount(this.currentScore) + '，伤害' + finalScore;
     this.centerFeedback = null;
     this.isResolving = true;
     this.playedCards = orderedPlayed;
@@ -1233,7 +1389,13 @@ class Game {
       return this.selectedIds.indexOf(card.id) < 0;
     }, this);
     this.selectedIds = [];
-    this.drawCardsToHand();
+
+    if (context.gainsTide) {
+      this.hasTide = true;
+      this.pendingTideDraw = true;
+    }
+
+    this.drawCards();
 
     if (this.monsterHp <= 0) {
       if (this.level >= LEVEL_COUNT) {
@@ -1252,6 +1414,8 @@ class Game {
       finalScore: finalScore,
       hpBefore: hpBefore,
       hpAfter: hpAfter,
+      shieldBefore: shieldBefore,
+      shieldAfter: shieldAfter,
       nextState: nextState
     });
   }
@@ -1353,11 +1517,18 @@ class Game {
       return;
     }
 
+    if (this.selectedIds.length > MAX_SELECTED_CARDS) {
+      this.lastResultText = '弃牌最多只能选择 ' + MAX_SELECTED_CARDS + ' 张符牌';
+      return;
+    }
+
+    const discardedCount = this.selectedIds.length;
+
     this.hand = this.hand.filter(function(card) {
       return this.selectedIds.indexOf(card.id) < 0;
     }, this);
     this.selectedIds = [];
-    this.drawCardsToHand();
+    this.drawExactCards(discardedCount);
     this.discardsLeft -= 1;
     this.lastResultText = '已弃牌并补牌';
   }
@@ -1429,6 +1600,39 @@ class Game {
     this.touchAreas.push({ x: x, y: y, w: w, h: h, onTap: onTap });
   }
 
+  // 主界面底部导航栏。
+  drawHomeBottomNav(activeState) {
+    const layout = this.layout;
+    const canvasWidth = layout.canvasWidth;
+    const navH = 64;
+    const navY = layout.canvasHeight - layout.bottomSafeInset - navH;
+    const buttonGap = 6;
+    const sidePadding = 8;
+    const buttonW = Math.floor((canvasWidth - sidePadding * 2 - buttonGap * (HOME_NAV_ITEMS.length - 1)) / HOME_NAV_ITEMS.length);
+    const buttonH = 42;
+    const buttonY = navY + 10;
+
+    fillRoundedRect(ctx, 0, navY, canvasWidth, navH + layout.bottomSafeInset, 0, 'rgba(53, 37, 26, 0.86)');
+
+    HOME_NAV_ITEMS.forEach(function(item, index) {
+      const x = sidePadding + index * (buttonW + buttonGap);
+      const isActive = item.state === activeState;
+
+      this.drawButton(
+        item.label,
+        x,
+        buttonY,
+        buttonW,
+        buttonH,
+        isActive ? '#f2bb35' : '#7a5a35',
+        function() {
+          this.openHomeTab(item.state);
+        }.bind(this),
+        isActive ? '#2f2118' : '#fffaf0'
+      );
+    }, this);
+  }
+
   // 绘制顶部状态栏。
   drawTopBar() {
     const layout = this.layout;
@@ -1441,11 +1645,11 @@ class Game {
     ctx.font = gameFont(18);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('第 ' + info.world + ' 关  ' + info.stage + ' / 3', canvasWidth / 2, layout.headerY + 10);
+    ctx.fillText('第 ' + info.world + ' 关  ' + info.stage + ' / 3', canvasWidth / 2, layout.headerY + layout.headerHeight / 2);
     ctx.font = gameFont(18);
     ctx.textAlign = 'left';
-    ctx.fillText('金币 ' + this.gold, 14, layout.headerY + 10);
-    this.drawButton('退出', canvasWidth - 78, layout.headerY - 4, 64, 28, '#7a3f35', function() {
+    ctx.fillText('金币 ' + this.gold, 14, layout.headerY + layout.headerHeight / 2);
+    this.drawButton('退出', canvasWidth - 78, layout.headerY + (layout.headerHeight - 28) / 2, 64, 28, '#7a3f35', function() {
       this.exitToStart();
     }.bind(this));
   }
@@ -1458,12 +1662,12 @@ class Game {
     }
 
     const elapsed = Date.now() - animation.startTime;
-    let base = animation.context.baseScore;
-    let multiplier = animation.context.rawMultiplier || animation.context.multiplier;
+    let base = 0;
+    let multiplier = BASE_MOMENTUM;
+    let currentElementBonuses = Object.assign(createElementBonuses(), animation.timeline.initialElementBonuses || {});
     let activeIndex = -1;
     let activeProgress = 0;
     let activeStep = null;
-    let floatText = '';
 
     animation.timeline.steps.forEach(function(step, index) {
       const stepStart = index * animation.cardDuration;
@@ -1472,6 +1676,7 @@ class Game {
       if (stepProgress >= 1) {
         base = step.scoreAfter;
         multiplier = step.multiplierAfter;
+        currentElementBonuses = Object.assign(createElementBonuses(), step.elementBonusesAfter || currentElementBonuses);
         return;
       }
 
@@ -1481,38 +1686,30 @@ class Game {
         activeStep = step;
         base = step.scoreBefore;
         multiplier = step.multiplierBefore;
+        currentElementBonuses = Object.assign(createElementBonuses(), step.elementBonusesBefore || currentElementBonuses);
 
         if (activeProgress > 0.22) {
           base += step.scoreGain;
+          currentElementBonuses = Object.assign(createElementBonuses(), step.elementBonusesAfter || currentElementBonuses);
         }
 
-        step.relicEvents.forEach(function(event, eventIndex) {
-          if (activeProgress > 0.48 + eventIndex * 0.14) {
-            if (event.stat === 'base') {
-              base += event.amount;
-            }
-            if (event.stat === 'multiplier') {
-              multiplier += event.amount;
-            }
-            floatText = event.text;
-          }
-        });
       }
     });
 
     if (elapsed >= animation.damageStart) {
       base = animation.timeline.finalBase;
       multiplier = animation.timeline.finalMultiplier;
+      currentElementBonuses = Object.assign(createElementBonuses(), animation.timeline.finalElementBonuses || currentElementBonuses);
     }
 
     return {
       elapsed: elapsed,
       base: base,
       multiplier: multiplier,
+      currentElementBonuses: currentElementBonuses,
       activeIndex: activeIndex,
       activeStep: activeStep,
       activeProgress: activeProgress,
-      floatText: floatText,
       damageProgress: clamp((elapsed - animation.damageStart) / animation.damageDuration, 0, 1),
       fadeProgress: clamp((elapsed - animation.damageStart - animation.damageDuration) / animation.fadeDuration, 0, 1)
     };
@@ -1547,41 +1744,63 @@ class Game {
   drawFormulaWindows(settlementDisplayCached) {
     const layout = this.layout;
     const canvasWidth = layout.canvasWidth;
-    const selectedCards = this.hand.filter(function(card) {
-      return this.selectedIds.indexOf(card.id) >= 0;
-    }, this);
-    const canPreviewHand = selectedCards.length > 0 && selectedCards.length <= 5;
-    const result = canPreviewHand ? evaluateHand(selectedCards) : null;
+    const selectedCards = this.selectedIds.map(function(id) {
+      return this.hand.find(function(card) {
+        return card.id === id;
+      });
+    }, this).filter(function(card) {
+      return !!card;
+    });
+    const canPreviewHand = selectedCards.length > 0 && selectedCards.length <= MAX_SELECTED_CARDS;
+    const result = canPreviewHand ? evaluateHand(selectedCards, this.bossElement) : null;
+    const preview = canPreviewHand ? estimateHandSpirit(selectedCards, result, this.elementBonuses) : null;
     const settlementDisplay = settlementDisplayCached !== undefined
       ? settlementDisplayCached
       : this.getSettlementDisplay();
     const baseText = settlementDisplay
       ? String(Math.round(settlementDisplay.base))
-      : (canPreviewHand ? String(result.baseScore) : '');
+      : (preview ? formatAmount(preview.spirit) : '');
     const multiplierText = settlementDisplay
       ? String(formatMultiplier(settlementDisplay.multiplier))
-      : (canPreviewHand ? String(result.multiplier) : '');
-    const boxW = Math.min(72, Math.floor((canvasWidth - 150) / 2));
-    const boxH = layout.calculationHeight;
-    const gap = 28;
+      : (preview ? String(formatMultiplier(preview.momentum)) : '');
+    const handName = settlementDisplay && this.settlementAnimation
+      ? this.settlementAnimation.result.name
+      : (canPreviewHand ? result.name : '');
+    const boxW = Math.max(42, Math.min(52, Math.floor(canvasWidth * 0.14)));
+    const boxH = Math.max(36, Math.min(42, layout.calculationHeight - 4));
+    const gap = Math.max(16, Math.floor(canvasWidth * 0.045));
     const totalW = boxW * 2 + gap;
     const x1 = Math.floor((canvasWidth - totalW) / 2);
     const x2 = x1 + boxW + gap;
-    const y = layout.calculationY;
+    const y = layout.calculationY + Math.floor((layout.calculationHeight - boxH) / 2);
 
     ctx.fillStyle = selectedCards.length > 0 || settlementDisplay ? '#d9792b' : '#b98a55';
     ctx.font = gameFont(18);
-    ctx.textAlign = 'right';
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(settlementDisplay ? this.settlementAnimation.result.name : (canPreviewHand ? result.name : ''), x1 - 12, y + boxH / 2);
+    ctx.fillText(handName, x2 + boxW + Math.max(8, Math.floor(canvasWidth * 0.02)), y + boxH / 2);
 
-    fillRoundedRect(ctx, x1, y, boxW, boxH, 12, '#fffaf0');
-    fillRoundedRect(ctx, x2, y, boxW, boxH, 12, '#fffaf0');
-    strokeRoundedRect(ctx, x1, y, boxW, boxH, 12, '#6b4f38', 2);
-    strokeRoundedRect(ctx, x2, y, boxW, boxH, 12, '#6b4f38', 2);
+    fillRoundedRect(ctx, x1, y, boxW, boxH, 8, '#fffaf0');
+    fillRoundedRect(ctx, x2, y, boxW, boxH, 8, '#fffaf0');
+    strokeRoundedRect(ctx, x1, y, boxW, boxH, 8, '#6b4f38', 2);
+    strokeRoundedRect(ctx, x2, y, boxW, boxH, 8, '#6b4f38', 2);
+
+    const labelW = Math.max(30, Math.floor(boxW * 0.68));
+    const labelH = Math.max(16, Math.floor(boxH * 0.36));
+    const labelY = y - labelH - 2;
+    fillRoundedRect(ctx, x1 + (boxW - labelW) / 2, labelY, labelW, labelH, 4, '#fffaf0');
+    fillRoundedRect(ctx, x2 + (boxW - labelW) / 2, labelY, labelW, labelH, 4, '#fffaf0');
+    strokeRoundedRect(ctx, x1 + (boxW - labelW) / 2, labelY, labelW, labelH, 4, '#8b7a67', 1);
+    strokeRoundedRect(ctx, x2 + (boxW - labelW) / 2, labelY, labelW, labelH, 4, '#8b7a67', 1);
+    ctx.fillStyle = '#2f2118';
+    ctx.font = gameFont(Math.max(11, Math.floor(labelH * 0.58)));
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('灵力', x1 + boxW / 2, labelY + labelH / 2);
+    ctx.fillText('灵势', x2 + boxW / 2, labelY + labelH / 2);
 
     ctx.fillStyle = '#2f2118';
-    ctx.font = gameFont(22);
+    ctx.font = gameFont(18);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(baseText, x1 + boxW / 2, y + boxH / 2);
@@ -1589,16 +1808,29 @@ class Game {
     ctx.font = gameFont(24);
     ctx.fillText('x', canvasWidth / 2, y + boxH / 2);
 
-    if (settlementDisplay && this.settlementAnimation && settlementDisplay.floatText) {
+    if (settlementDisplay &&
+        settlementDisplay.activeStep &&
+        settlementDisplay.activeStep.hasStatChange &&
+        settlementDisplay.activeProgress > 0.24) {
+      const spiritBadge = settlementDisplay.activeStep.spiritBadgeText ||
+        '+' + formatAmount(settlementDisplay.activeStep.scoreGain || 0);
+      const momentumBadge = settlementDisplay.activeStep.momentumGain
+        ? '+' + formatAmount(settlementDisplay.activeStep.momentumGain)
+        : '';
+      const badgeFontSize = 12;
+      const badgeY = y + boxH - 3;
+
       ctx.fillStyle = '#f2bb35';
-      ctx.font = gameFont(14);
-      ctx.textAlign = 'center';
-      ctx.fillText(settlementDisplay.floatText, canvasWidth / 2, y - 12 - settlementDisplay.activeProgress * 10);
+      ctx.font = gameFont(badgeFontSize);
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(spiritBadge, x1 + boxW - 4, badgeY);
+
+      if (momentumBadge) {
+        ctx.fillText(momentumBadge, x2 + boxW - 4, badgeY);
+      }
     }
 
-    this.drawButton('比赛信息', Math.min(canvasWidth - 82, x2 + boxW + 12), y + 7, 70, 32, '#f2bb35', function() {
-      this.openMatchInfoModal();
-    }.bind(this), '#2f2118');
   }
 
   drawMonster(settlementDisplayCached) {
@@ -1606,10 +1838,11 @@ class Game {
     const canvasWidth = layout.canvasWidth;
     const areaTop = layout.monsterY;
     const areaBottom = layout.monsterY + layout.monsterHeight;
-    const hpW = Math.min(canvasWidth - MONSTER_LAYOUT.hpHorizontalPadding, MONSTER_LAYOUT.hpWidthMax);
-    const hpH = layout.hpBarHeight;
-    const hpX = Math.floor((canvasWidth - hpW) / 2);
-    const hpY = layout.hpBarY;
+    const hpBar = getHpBarLayout(layout);
+    const hpW = hpBar.w;
+    const hpH = hpBar.h;
+    const hpX = hpBar.x;
+    const hpY = hpBar.y;
     const stageTop = areaTop + MONSTER_LAYOUT.stageTopPadding;
     const stageBottom = areaBottom;
     const stageH = Math.max(MONSTER_LAYOUT.stageMinHeight, stageBottom - stageTop);
@@ -1622,14 +1855,15 @@ class Game {
       Math.max(MONSTER_LAYOUT.monsterMinWidth, Math.floor(monsterH * MONSTER_LAYOUT.monsterAspectRatio))
     );
     const monsterX = canvasWidth / 2 - monsterW / 2;
-    const monsterY = Math.max(stageTop, stageBottom - monsterH - MONSTER_LAYOUT.monsterToHpGap);
     const monsterVisualDownOffset = Math.floor(monsterH * MONSTER_LAYOUT.monsterVisualDownOffsetRatio);
-    const monsterRenderY = Math.min(
-      hpY - MONSTER_LAYOUT.monsterBottomClearance - monsterH,
-      monsterY + monsterVisualDownOffset
+    const monsterRenderY = clamp(
+      stageTop + Math.floor((stageH - monsterH) * 0.52) + monsterVisualDownOffset,
+      stageTop,
+      Math.max(stageTop, stageBottom - monsterH)
     );
     const displayedHp = this.settlementAnimation ? this.visualMonsterHp : this.monsterHp;
     const hpRate = this.monsterMaxHp > 0 ? displayedHp / this.monsterMaxHp : 0;
+    const shieldRate = this.monsterMaxHp > 0 ? this.monsterShield / this.monsterMaxHp : 0;
     const settlementDisplay = settlementDisplayCached !== undefined
       ? settlementDisplayCached
       : this.getSettlementDisplay();
@@ -1642,7 +1876,11 @@ class Game {
     const bossW = monsterW * (1 + breath);
     const bossH = monsterH * (1 - breath * 0.55);
     const bossX = canvasWidth / 2 - bossW / 2 + damageShake;
-    const bossY = Math.min(stageBottom - bossH + monsterVisualDownOffset, monsterRenderY + monsterH - bossH);
+    const bossY = clamp(
+      monsterRenderY + (monsterH - bossH) / 2,
+      stageTop,
+      Math.max(stageTop, stageBottom - bossH)
+    );
 
     if (!this.drawGameImage('catBoss', bossX, bossY, bossW, bossH, 1)) {
       fillRoundedRect(ctx, monsterX + damageShake, monsterRenderY, monsterW, monsterH, 20, '#4b3226');
@@ -1683,12 +1921,74 @@ class Game {
       ctx.restore();
     }
 
+    const hpFillW = Math.floor(hpW * clamp(hpRate, 0, 1));
+    const shieldFillW = Math.floor(hpW * clamp(shieldRate, 0, 1));
+    const shieldX = hpX + hpW - shieldFillW;
+
     fillRoundedRect(ctx, hpX, hpY, hpW, hpH, 10, '#fff5df');
-    fillRoundedRect(ctx, hpX, hpY, Math.floor(hpW * hpRate), hpH, 10, '#c54a3f');
+    if (hpFillW > 0) {
+      fillRoundedRect(ctx, hpX, hpY, hpFillW, hpH, 10, '#c54a3f');
+    }
+    if (this.monsterShield > 0 && shieldFillW > 0) {
+      fillRoundedRect(ctx, shieldX, hpY, shieldFillW, hpH, 10, '#6fb0d7');
+    }
     strokeRoundedRect(ctx, hpX, hpY, hpW, hpH, 10, '#2f2118', 2);
     ctx.fillStyle = '#2f2118';
     ctx.font = gameFont(14);
-    ctx.fillText(displayedHp + '/' + this.monsterMaxHp, canvasWidth / 2, hpY + hpH / 2);
+    ctx.fillText(ELEMENT_LABELS[this.bossElement] + ' ' + displayedHp + '/' + this.monsterMaxHp + ' 护盾' + this.monsterShield, canvasWidth / 2, hpY + hpH / 2);
+  }
+
+  drawBattleSideButtons() {
+    const layout = this.layout;
+    const button = getBattleSideButtonLayout(layout);
+
+    this.drawButton('设置', button.x, button.y, button.w, button.h, '#fffaf0', function() {
+      this.openRelicModal();
+    }.bind(this), '#2f2118');
+
+    this.drawButton('牌型', button.x, button.y + button.h + button.gap, button.w, button.h, '#fffaf0', function() {
+      this.openMatchInfoModal();
+    }.bind(this), '#2f2118');
+  }
+
+  drawDeckPreviewStrip() {
+    const layout = this.layout;
+    const canvasWidth = layout.canvasWidth;
+    const y = layout.deckPreviewY;
+    const h = layout.deckPreviewHeight;
+    const iconSize = Math.min(Math.floor(h * 0.68), Math.floor(canvasWidth * 0.12));
+    const gap = Math.max(12, Math.floor((canvasWidth - iconSize * ELEMENT_DISPLAY_ORDER.length - 28) / (ELEMENT_DISPLAY_ORDER.length - 1)));
+    const totalW = iconSize * ELEMENT_DISPLAY_ORDER.length + gap * (ELEMENT_DISPLAY_ORDER.length - 1);
+    const startX = Math.floor((canvasWidth - totalW) / 2);
+    const iconY = y + Math.floor((h - iconSize) / 2);
+
+    fillRoundedRect(ctx, 0, y, canvasWidth, h, 0, 'rgba(255, 250, 240, 0.80)');
+    ctx.strokeStyle = 'rgba(107, 79, 56, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvasWidth, y);
+    ctx.moveTo(0, y + h);
+    ctx.lineTo(canvasWidth, y + h);
+    ctx.stroke();
+
+    ELEMENT_DISPLAY_ORDER.forEach(function(element, index) {
+      const x = startX + index * (iconSize + gap);
+
+      fillRoundedRect(ctx, x, iconY, iconSize, iconSize, 3, '#fffaf0');
+      strokeRoundedRect(ctx, x, iconY, iconSize, iconSize, 3, '#c9c2b8', 2);
+      drawElementSymbol(ctx, element, x + iconSize / 2, iconY + iconSize / 2, Math.floor(iconSize * 0.62), 0.92);
+    });
+
+    this.touchAreas.push({
+      x: 0,
+      y: y,
+      w: canvasWidth,
+      h: h,
+      onTap: function() {
+        this.openDeckModal();
+      }.bind(this)
+    });
   }
 
   drawDeckModal() {
@@ -1718,7 +2018,7 @@ class Game {
 
     ELEMENT_DISPLAY_ORDER.forEach(function(element) {
       grouped[element].sort(function(a, b) {
-        return a.number - b.number;
+        return (a.serial || 0) - (b.serial || 0);
       });
     });
 
@@ -1759,7 +2059,7 @@ class Game {
       const rowY = modalY + 50 + index * rowH;
       const labelX = modalX + 18;
       const cardX = modalX + 68;
-      const slotW = Math.floor((modalW - 84) / 10);
+      const slotW = Math.floor((modalW - 84) / 8);
       const cardW = Math.max(20, Math.min(24, slotW - 1));
       const cardH = 34;
       const cardsByNumber = {};
@@ -1767,7 +2067,7 @@ class Game {
       const labelIconSize = 24;
 
       cards.forEach(function(card) {
-        cardsByNumber[card.number] = card;
+        cardsByNumber[card.serial] = card;
       });
 
       if (labelIcon && labelIcon.ready) {
@@ -1792,10 +2092,10 @@ class Game {
         return;
       }
 
-      for (let number = 1; number <= 10; number += 1) {
-        const slotX = cardX + (number - 1) * slotW;
+      for (let serial = 1; serial <= 8; serial += 1) {
+        const slotX = cardX + (serial - 1) * slotW;
         const slotY = rowY + Math.floor((rowH - cardH) / 2);
-        const hasCard = !!cardsByNumber[number];
+        const hasCard = !!cardsByNumber[serial];
 
         ctx.fillStyle = hasCard ? '#fffaf0' : 'rgba(107, 79, 56, 0.12)';
         ctx.strokeStyle = hasCard ? '#5d4937' : 'rgba(107, 79, 56, 0.35)';
@@ -1804,10 +2104,11 @@ class Game {
         strokeRoundedRect(ctx, slotX, slotY, cardW, cardH, 6, ctx.strokeStyle, 1);
 
         if (hasCard) {
-          drawMiniDeckCard(ctx, cardsByNumber[number], slotX, slotY, cardW, cardH);
+          cardsByNumber[serial].displayPower = getCardPower(cardsByNumber[serial], this.elementBonuses);
+          drawMiniDeckCard(ctx, cardsByNumber[serial], slotX, slotY, cardW, cardH);
         }
       }
-    });
+    }, this);
   }
 
   drawRelicModal() {
@@ -1998,9 +2299,13 @@ class Game {
       ctx.textBaseline = 'middle';
       ctx.fillText(handType.name, modalX + 26, y + (rowH - 4) / 2);
 
-      ctx.font = gameFont(12);
+      const effectText = handType.spiritMultiplier !== 1
+        ? '灵力x' + handType.spiritMultiplier
+        : handType.desc;
+
+      ctx.font = gameFont(11);
       ctx.textAlign = 'center';
-      ctx.fillText(handType.baseScore + ' x ' + handType.multiplier, modalX + modalW / 2 + 18, y + (rowH - 4) / 2);
+      ctx.fillText(effectText.length > 12 ? effectText.slice(0, 12) : effectText, modalX + modalW / 2 + 18, y + (rowH - 4) / 2);
 
       ctx.textAlign = 'right';
       ctx.fillText('# ' + count, modalX + modalW - 26, y + (rowH - 4) / 2);
@@ -2129,25 +2434,69 @@ class Game {
 
     this.drawTopBar();
     this.drawMonster(settlementFrame);
+    this.drawBattleSideButtons();
     this.drawFormulaWindows(settlementFrame);
 
     const playBoxY = layout.playAreaY;
     const playBoxH = Math.min(86, Math.max(64, layout.playAreaHeight));
     const playCardGap = 6;
-    const playCardW = Math.min(52, Math.floor((canvasWidth - 52 - playCardGap * 4) / 5));
+    const sidePadding = Math.max(10, Math.floor(canvasWidth * 0.035));
+    const diagramTop = layout.calculationY + Math.max(0, Math.floor(layout.calculationHeight * 0.05));
+    const diagramBottom = layout.playAreaY + layout.playAreaHeight - Math.max(0, Math.floor(layout.playAreaHeight * 0.02));
+    const diagramSize = Math.max(58, Math.min(
+      diagramBottom - diagramTop,
+      Math.floor(canvasWidth * 0.18)
+    ));
+    const diagramX = sidePadding;
+    const diagramY = diagramTop + Math.floor((diagramBottom - diagramTop - diagramSize) / 2);
+    const infoW = Math.max(64, Math.min(82, Math.floor(canvasWidth * 0.15)));
+    const infoX = canvasWidth - sidePadding - infoW;
+    const infoBoxH = Math.max(30, Math.min(38, Math.floor(playBoxH * 0.48)));
+    const poolY = playBoxY + Math.floor((playBoxH - infoBoxH) / 2);
+    const centerSafeLeft = diagramX + diagramSize + Math.max(8, Math.floor(canvasWidth * 0.02));
+    const centerSafeRight = infoX - Math.max(8, Math.floor(canvasWidth * 0.02));
+    const slotAreaW = Math.max(132, centerSafeRight - centerSafeLeft);
+    const playCardW = Math.min(52, Math.floor((slotAreaW - playCardGap * (MAX_SELECTED_CARDS - 1)) / MAX_SELECTED_CARDS));
     const playCardH = Math.min(playBoxH - 14, Math.floor(playCardW * 1.42));
-    const playSlotsW = playCardW * 5 + playCardGap * 4;
-    const playSlotX = Math.floor((canvasWidth - playSlotsW) / 2);
+    const playSlotsW = playCardW * MAX_SELECTED_CARDS + playCardGap * (MAX_SELECTED_CARDS - 1);
+    const centeredSlotX = Math.floor((canvasWidth - playSlotsW) / 2);
+    const minSlotX = centerSafeLeft;
+    const maxSlotX = centerSafeRight - playSlotsW;
+    const playSlotX = clamp(centeredSlotX, minSlotX, Math.max(minSlotX, maxSlotX));
     const playSlotY = playBoxY + Math.floor((playBoxH - playCardH) / 2);
     const settlementDisplay = settlementFrame;
+    const displayElementBonuses = settlementDisplay && settlementDisplay.currentElementBonuses
+      ? settlementDisplay.currentElementBonuses
+      : this.elementBonuses;
     const activeCard = settlementDisplay && this.settlementAnimation && settlementDisplay.activeIndex >= 0
       ? this.settlementAnimation.timeline.steps[settlementDisplay.activeIndex].card
       : null;
 
+    drawFiveElementDiagram(ctx, diagramX, diagramY, diagramSize);
+
+    const poolLabelW = Math.max(42, Math.floor(infoW * 0.72));
+    const poolLabelH = Math.max(16, Math.floor(infoBoxH * 0.42));
+    const poolLabelX = infoX + (infoW - poolLabelW) / 2;
+    const poolLabelY = poolY - poolLabelH - 2;
+
+    fillRoundedRect(ctx, infoX, poolY, infoW, infoBoxH, 8, '#fffaf0');
+    strokeRoundedRect(ctx, infoX, poolY, infoW, infoBoxH, 8, '#6b4f38', 2);
+    ctx.fillStyle = '#2f2118';
+    ctx.font = gameFont(Math.max(13, Math.min(17, Math.floor(infoW / 5))));
+    ctx.fillText(formatAmount(this.currentScore), infoX + infoW / 2, poolY + infoBoxH / 2);
+
+    fillRoundedRect(ctx, poolLabelX, poolLabelY, poolLabelW, poolLabelH, 4, '#fffaf0');
+    strokeRoundedRect(ctx, poolLabelX, poolLabelY, poolLabelW, poolLabelH, 4, '#8b7a67', 1);
+    ctx.fillStyle = '#2f2118';
+    ctx.font = gameFont(Math.max(11, Math.floor(poolLabelH * 0.58)));
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('灵力池', infoX + infoW / 2, poolLabelY + poolLabelH / 2);
+
     fillRoundedRect(ctx, playSlotX - 6, playSlotY - 6, playSlotsW + 12, playCardH + 12, 14, '#ead3a7');
     strokeRoundedRect(ctx, playSlotX - 6, playSlotY - 6, playSlotsW + 12, playCardH + 12, 14, '#6b4f38', 1);
 
-    for (let slotIndex = 0; slotIndex < 5; slotIndex += 1) {
+    for (let slotIndex = 0; slotIndex < MAX_SELECTED_CARDS; slotIndex += 1) {
       const slotX = playSlotX + slotIndex * (playCardW + playCardGap);
 
       fillRoundedRect(ctx, slotX, playSlotY, playCardW, playCardH, 8, 'rgba(255, 250, 240, 0.58)');
@@ -2179,6 +2528,7 @@ class Game {
           ctx.restore();
         }
 
+        card.displayPower = getCardPower(card, displayElementBonuses);
         drawPlayedCard(ctx, card, drawX, drawY, drawW, drawH);
 
         if (isActive && hitPulse > 0) {
@@ -2195,23 +2545,23 @@ class Game {
 
     const cardW = layout.handCardWidth;
     const cardH = layout.handCardHeight;
-    const maxHandWidth = canvasWidth - 28;
-    const stackStep = this.hand.length > 1
-      ? Math.max(22, Math.min(layout.handCardGap, Math.floor((maxHandWidth - cardW) / (this.hand.length - 1))))
-      : 0;
-    const cardsWidth = cardW + stackStep * Math.max(0, this.hand.length - 1);
+    const visibleHandCount = Math.min(MAX_HAND_SIZE, Math.max(this.hand.length, INITIAL_HAND_SIZE));
+    const cardsWidth = cardW * visibleHandCount + layout.handCardGap * Math.max(0, visibleHandCount - 1);
     const startX = Math.max(14, Math.floor((canvasWidth - cardsWidth) / 2));
     const cardY = layout.handCardsY + Math.max(8, Math.floor((layout.handCardsHeight - cardH) / 2));
 
-    ctx.fillStyle = 'rgba(213, 186, 136, 0.7)';
+    this.drawDeckPreviewStrip();
+
+    ctx.fillStyle = 'rgba(213, 186, 136, 0.72)';
     ctx.fillRect(0, layout.handCardsY, canvasWidth, layout.canvasHeight - layout.handCardsY);
     ctx.strokeStyle = '#6b4f38';
     ctx.strokeRect(0, layout.handCardsY, canvasWidth, 1);
 
     this.hand.forEach(function(card, index) {
-      const x = startX + index * stackStep;
+      const x = startX + index * (cardW + layout.handCardGap);
       const selected = this.selectedIds.indexOf(card.id) >= 0;
 
+      card.displayPower = getCardPower(card, this.elementBonuses);
       drawCard(ctx, card, x, cardY, selected, cardW, cardH);
       this.touchAreas.push({
         x: card.renderX,
@@ -2224,25 +2574,24 @@ class Game {
       });
     }, this);
 
-    const sideW = Math.max(62, Math.floor((canvasWidth - 228) / 2));
-    const mainW = Math.max(76, Math.floor((canvasWidth - sideW * 2 - 46) / 2));
-    const buttonY = layout.actionButtonsY + Math.floor((layout.actionButtonsHeight - 36) / 2);
-    let x = 10;
-    this.drawButton('剩余牌库 ' + this.deck.length, x, buttonY, sideW, 36, '#6b4f38', function() {
-      this.openDeckModal();
-    }.bind(this));
-    x += sideW + 8;
-    this.drawButton('出牌x' + this.handsLeft, x, buttonY, mainW, 36, '#9b3d32', function() {
+    const buttonH = Math.max(38, Math.min(48, Math.floor(layout.actionButtonsHeight * 0.68)));
+    const buttonY = layout.actionButtonsY + Math.floor((layout.actionButtonsHeight - buttonH) / 2);
+    const actionSidePadding = Math.max(12, Math.floor(canvasWidth * 0.045));
+    const deckButtonW = Math.max(48, Math.floor(canvasWidth * 0.16));
+    const mainGap = Math.max(20, Math.floor(canvasWidth * 0.06));
+    const mainW = Math.floor((canvasWidth - actionSidePadding * 2 - deckButtonW - mainGap * 2) / 2);
+    let x = actionSidePadding;
+
+    this.drawButton('出牌x' + this.handsLeft, x, buttonY, mainW, buttonH, '#9b3d32', function() {
       this.playSelectedCards();
     }.bind(this));
-    x += mainW + 8;
-    this.drawButton('弃牌x' + this.discardsLeft, x, buttonY, mainW, 36, '#536d47', function() {
+    x += mainW + mainGap;
+    this.drawButton('弃牌x' + this.discardsLeft, x, buttonY, mainW, buttonH, '#536d47', function() {
       this.discardSelectedCards();
     }.bind(this));
-    x += mainW + 8;
-    this.relicButtonArea = { x: x, y: buttonY, w: sideW, h: 36 };
-    this.drawButton('饰品', x, buttonY, sideW, 36, '#7a5a35', function() {
-      this.openRelicModal();
+    x += mainW + mainGap;
+    this.drawButton('牌库' + this.deck.length, x, buttonY, deckButtonW, buttonH, '#2f7fb3', function() {
+      this.openDeckModal();
     }.bind(this));
   }
 
@@ -2263,6 +2612,26 @@ class Game {
     this.drawButton('开始游戏', canvasWidth / 2 - 80, canvasHeight * 0.55, 160, 46, '#d85b44', function() {
       this.restart();
     }.bind(this));
+    this.drawHomeBottomNav('start');
+  }
+
+  // 绘制主界面底部导航的占位页面。
+  drawHomePlaceholder(title, desc, activeState) {
+    const layout = this.layout;
+    const canvasWidth = layout.canvasWidth;
+    const canvasHeight = layout.canvasHeight;
+
+    ctx.fillStyle = '#2f2118';
+    ctx.font = gameFont(34);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(title, canvasWidth / 2, Math.max(layout.topPadding + 56, canvasHeight * 0.30));
+
+    ctx.fillStyle = '#6b4f38';
+    ctx.font = gameFont(16);
+    ctx.fillText(desc, canvasWidth / 2, Math.max(layout.topPadding + 106, canvasHeight * 0.40));
+
+    this.drawHomeBottomNav(activeState);
   }
 
   // 绘制商店页面。
@@ -2393,6 +2762,14 @@ class Game {
 
     if (this.state === 'start') {
       this.drawStart();
+    } else if (this.state === 'codex') {
+      this.drawHomePlaceholder('图鉴', '这里将展示已收集的卡牌、元素与敌人信息', 'codex');
+    } else if (this.state === 'hand_upgrade') {
+      this.drawHomePlaceholder('牌型升级', '这里将用于升级牌型与调整成长路线', 'hand_upgrade');
+    } else if (this.state === 'cat_home') {
+      this.drawHomePlaceholder('猫窝', '这里将放置灵猫养成与饰品展示内容', 'cat_home');
+    } else if (this.state === 'summon') {
+      this.drawHomePlaceholder('召唤', '这里将用于召唤新灵猫或获得新道具', 'summon');
     } else if (this.state === 'playing') {
       this.drawPlaying();
     } else if (this.state === 'shop') {

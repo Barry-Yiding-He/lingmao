@@ -3,9 +3,9 @@ const WORLD_COUNT = 3;
 const LEVEL_COUNT = STAGES_PER_WORLD * WORLD_COUNT;
 
 const LEVEL_HP = [
-  300, 300, 300,
-  450, 450, 450,
-  600, 600, 600
+  100, 200, 300,
+  3000, 5500, 10000,
+  20000, 40000, 90000
 ];
 
 module.exports = {
