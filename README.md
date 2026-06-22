@@ -1,168 +1,125 @@
-# 灵猫符牌
+# Lingmao Rune Cards
 
-一款面向微信小游戏场景的五行策略卡牌原型。玩家通过选择符牌、触发灵猫效果、累积灵力池并攻击 Boss，在有限出牌和弃牌次数内推进关卡。
+[中文详细版](README.zh-CN.md)
 
-当前版本的核心已经从早期“扑克牌型改造”迭代为更独立的五行战斗系统：`金 / 木 / 水 / 火 / 土` 不再只是花色替代，而是直接决定出牌组合、灵猫效果、Boss 克制关系和局内成长。
+Lingmao Rune Cards is a WeChat Mini Game card-battle prototype built with Canvas and JavaScript. Players combine five-element rune cards, trigger elemental cat effects, build a shared spirit pool, and defeat randomized bosses across 3 worlds and 9 stages with limited play and discard actions.
 
-## 当前玩法概览
+## Highlights
 
-- 每局包含 3 个世界、共 9 个小关。
-- 每关开始时生成一个随机元素 Boss。
-- Boss 拥有血量和护盾，护盾初始值为血量的一半。
-- 玩家每回合最多选择 3 张符牌出牌，也可以弃牌换牌。
-- 每关有 4 次出牌机会和 4 次弃牌机会。
-- 手牌通常补到 5 张；触发灵潮后下一次补牌可补到 6 张。
-- 目标是在出牌次数耗尽前击败 Boss。
+- **Original combat system**: `Metal / Wood / Water / Fire / Earth` drive card combinations, growth effects, boss matchups, and damage resolution instead of acting as simple suit replacements.
+- **Mobile Canvas gameplay**: Implements portrait layout, touch-based card selection, battle feedback, animations, HP bars, shields, and in-combat state display.
+- **Config-driven rules**: Elements, hand types, levels, bosses, and relics are separated into configuration and logic modules for easier tuning and expansion.
+- **Complete prototype flow**: Includes start, battle, shop, victory, and failure states, plus deck preview, hand hints, and result feedback.
+- **Portfolio-ready scope**: Demonstrates game-system design, state management, Canvas rendering, mobile interaction design, and modular JavaScript implementation.
 
-## 符牌与牌库
+## Tech Stack
 
-每关使用一副五行符牌：
+- JavaScript
+- WeChat Mini Game API
+- Canvas 2D rendering
+- CommonJS modules
+- Mobile-first portrait layout
 
-- 元素：`金 / 木 / 水 / 火 / 土`
-- 每个元素 8 张牌，共 40 张
-- 每张牌基础灵力为 `5`
-- 牌面显示的 `+x` 来自元素成长加成
+## Gameplay Overview
 
-当前版本中，符牌的战斗价值主要来自元素、出牌顺序、灵猫触发和成长加成，而不是传统点数大小。
+Each run contains 3 worlds and 9 stages. Every stage generates a random elemental boss with HP and shield. The player can play up to 3 rune cards per turn, discard cards to redraw, and must defeat the boss before play actions run out.
 
-## 五行关系
+Core rules:
 
-游戏采用两套五行顺序：
+- Each stage starts with a randomized elemental boss.
+- Bosses have HP and shield; initial shield equals half of max HP.
+- The player can play up to 3 cards per turn.
+- Each stage gives 4 play actions and 4 discard actions.
+- The hand normally refills to 5 cards; the water tide effect can refill up to 6 cards once.
+- The goal is to defeat the boss before play actions are exhausted.
 
-- 相生：`木 -> 火 -> 土 -> 金 -> 水 -> 木`
-- 相克：`金 -> 木 -> 土 -> 水 -> 火 -> 金`
+## Five-Element System
 
-牌型判断会严格读取玩家点击牌的顺序。例如：
+The game uses two five-element relationship cycles:
 
-- 先点 `木 -> 火 -> 土`，是相生链。
-- 先点 `金 -> 水 -> 木`，也是相生链，因为五行关系可以循环。
-- 先点 `金 -> 木 -> 土`，是相克链。
+- Generating cycle: `Wood -> Fire -> Earth -> Metal -> Water -> Wood`
+- Controlling cycle: `Metal -> Wood -> Earth -> Water -> Fire -> Metal`
 
-战斗界面会在出牌区展示五行关系图，帮助玩家判断顺序。
+Hand evaluation respects the order in which cards are selected. For example, `wood -> fire -> earth` is a generating chain, while `metal -> wood -> earth` is a controlling chain. The battle screen includes a relationship diagram to support player decisions.
 
-## 牌型规则
+## Hand Rules
 
-每次出牌最多 3 张。牌型优先级如下：
+Each play can contain up to 3 cards.
 
-1. 同花
-2. 相生链 / 相克链
-3. 二相生 / 二相克
-4. 日魄
-5. 普通出牌
-
-当前已实现牌型：
-
-| 牌型 | 条件 | 效果 |
+| Hand | Condition | Effect |
 | --- | --- | --- |
-| 同花 | 3 张同元素牌 | 每张牌的灵猫效果触发 2 次 |
-| 相生链 | 3 张牌按相生顺序点击 | 本次出牌总灵力 x1.5 |
-| 相克链 | 3 张牌按相克顺序点击 | 本次攻击无视护盾 |
-| 二相生 | 至少有连续 2 张按相生顺序点击 | 本次出牌总灵力 x1.2 |
-| 二相克 | 至少有连续 2 张按相克顺序点击 | 先削减 Boss 最大护盾的 25% |
-| 日魄 | 单出一张克制 Boss 的牌 | 该张牌灵力 +10 |
-| 普通出牌 | 不满足以上牌型 | 正常结算灵力 |
+| Flush | 3 cards of the same element | Each cat effect triggers twice |
+| Generating Chain | 3 cards follow the generating cycle | Spirit gain x1.5 |
+| Controlling Chain | 3 cards follow the controlling cycle | Damage bypasses shield |
+| Two-Card Generation | Any adjacent generating pair | Spirit gain x1.2 |
+| Two-Card Control | Any adjacent controlling pair | Reduces 25% of max shield first |
+| Sun Soul | Single card controls the boss element | Card spirit +10 |
+| Plain Play | No special hand matched | Standard spirit calculation |
 
-对子不是正式牌型。当前规则中，“至少两张相同元素”用于触发元素攻击属性，用来参与 Boss 克制/被克制判断。
+## Elemental Cat Effects
 
-## 灵猫效果
+Each played card triggers its elemental cat effect once. A flush triggers each card effect twice.
 
-每张牌打出时都会触发对应元素灵猫。普通情况下每张牌触发 1 次；同花时每张牌触发 2 次。
-
-| 元素 | 灵猫效果 |
+| Element | Effect |
 | --- | --- |
-| 金 | 金牌获得永久 `+1` 点数，持续到本局游戏结束 |
-| 木 | 木牌在本场战斗中获得 `+2` 灵力 |
-| 水 | 获得一次性“灵潮”状态，下次补牌最多补到 6 张 |
-| 火 | 本次出牌灵势 `+0.2` |
-| 土 | 若本次打出 3 张牌，该张土牌额外获得 `+5` 灵力 |
+| Metal | Metal cards gain permanent `+1` for the run |
+| Wood | Wood cards gain `+2` spirit for the current battle |
+| Water | Grants a one-time tide state, refilling up to 6 cards next draw |
+| Fire | Adds `+0.2` momentum for the current play |
+| Earth | If 3 cards are played, the earth card gains `+5` spirit |
 
-金和木的持续时间不同：
+## Scoring and Damage
 
-- 金牌成长是整局永久成长，跨小关保留。
-- 木牌成长只在当前 Boss 战内生效，进入下一关会重置。
+Spirit is calculated for the current play, then added to a shared spirit pool. Damage is based on the total spirit pool:
 
-## 结算逻辑
+- If the attack element controls the boss element, damage is `spirit pool x1.5`.
+- If the attack element is controlled by the boss element, damage is `spirit pool x0.5`.
+- Otherwise, damage equals the current spirit pool.
+- Shield absorbs damage first, while controlling chains can bypass shield.
 
-本次出牌会先计算“本次出牌灵力”，再加入总灵力池。
+## Implemented Features
 
-基础流程：
+- WeChat Mini Game Canvas rendering and touch input
+- Start, battle, shop, victory, and failure states
+- 9-stage progression
+- Elemental deck, draw, play, discard, and refill flows
+- Elemental hand evaluation and priority handling
+- Spirit pool, momentum, boss HP, and shield resolution
+- Element relationship diagram, deck preview, and hand hints
+- Result animations, value badges, and hit sound effects
+- Early shop and relic system
+- Mobile portrait layout adaptation
 
-1. 每张牌贡献基础灵力 `5`。
-2. 叠加该牌当前元素成长值。
-3. 触发对应灵猫效果。
-4. 根据牌型倍率计算本次出牌灵力。
-5. 本次出牌灵力加入灵力池。
-6. 根据元素克制关系，用总灵力池计算本次伤害。
-
-伤害规则：
-
-- 如果本次元素攻击克制 Boss：造成 `总灵力池 x1.5` 伤害。
-- 如果本次元素攻击被 Boss 克制：造成 `总灵力池 x0.5` 伤害。
-- 否则造成 `总灵力池` 伤害。
-
-克制关系只影响最终伤害，不影响本次出牌正常加入灵力池。
-
-## Boss 与护盾
-
-- Boss 元素每关随机。
-- Boss 护盾初始值为血量的一半。
-- 护盾覆盖在血条右侧，按护盾值占 Boss 最大血量的比例显示。
-- 受到伤害时优先扣护盾。
-- 护盾消失后再扣血量。
-- 相克链可以无视护盾直接攻击血量。
-- 二相克会先削减 25% 最大护盾，再进入正常伤害结算。
-
-## 手牌与补牌
-
-- 初始手牌为 5 张。
-- 每回合最多打出 3 张。
-- 出牌后补到 5 张。
-- 若回合开始时拥有灵潮，则补到最多 6 张，并消耗灵潮。
-- 弃牌时弃几张补几张。
-- 手牌区按最多 6 张平铺展示，不叠放。
-
-## 当前已实现功能
-
-- 微信小游戏 Canvas 渲染与触控交互
-- 开始页、战斗页、商店页、通关/失败状态
-- 9 小关关卡推进
-- 五行牌库、抽牌、出牌、弃牌、补牌
-- 五行牌型识别与优先级判断
-- 灵力池、灵势、Boss 血条和护盾结算
-- 五行关系图、牌库预览、牌型提示
-- 结算动画、数值角标、打击音效
-- 商店与摆件系统雏形
-- 移动端比例布局适配
-
-## 项目结构
+## Project Structure
 
 ```text
 .
-├── game.js                 # 主游戏循环、渲染、交互和战斗结算
-├── game.json               # 微信小游戏配置
-├── project.config.json     # 微信开发者工具项目配置
+├── game.js                  # Main loop, rendering, input, battle logic
+├── game.json                # WeChat Mini Game configuration
+├── project.config.json      # WeChat DevTools project configuration
 ├── src
 │   ├── config
-│   │   ├── elements.js     # 五行元素配置
-│   │   ├── handTypes.js    # 牌型配置
-│   │   ├── levels.js       # 关卡血量配置
-│   │   ├── boss.js         # Boss 与素材布局配置
-│   │   └── relics.js       # 商店摆件配置
+│   │   ├── boss.js          # Boss and asset layout config
+│   │   ├── elements.js      # Element config
+│   │   ├── handTypes.js     # Hand type config
+│   │   ├── levels.js        # Level HP config
+│   │   └── relics.js        # Shop relic config
 │   └── logic
-│       └── handEvaluator.js # 牌型与五行关系判断
-└── assets                  # 元素图标、字体、背景、音效等资源
+│       └── handEvaluator.js # Hand and element evaluator
+└── assets                   # Images, fonts, and audio assets
 ```
 
-## 运行方式
+## How to Run
 
-1. 使用微信开发者工具导入项目目录。
-2. 编译并在模拟器或真机运行。
-3. 点击开始游戏，进入战斗流程。
+1. Open the project folder in WeChat DevTools.
+2. Compile and run it in the simulator or on a real device.
+3. Tap the start button to enter the battle flow.
 
-## 后续迭代方向
+## Future Improvements
 
-- 继续平衡金、木等成长效果的数值曲线。
-- 增加更多 Boss 行为，让不同关卡有更明确的差异。
-- 丰富商店摆件和机制型道具。
-- 优化新手引导，让五行关系和灵力池规则更容易理解。
-- 补充更系统的测试用例，覆盖牌型、补牌、护盾和跨关成长。
+- Tune progression curves for metal, wood, and other growth effects.
+- Add more boss behaviors to differentiate stages.
+- Expand shop relics and mechanic-driven items.
+- Improve onboarding for element relationships and spirit-pool rules.
+- Add test coverage for hand evaluation, refills, shield logic, and cross-stage growth.
+

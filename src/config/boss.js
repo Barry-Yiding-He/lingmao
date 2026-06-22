@@ -16,8 +16,9 @@ const MONSTER_LAYOUT = {
   monsterMinWidth: 108,
   monsterAspectRatio: 1.36,
   monsterToHpGap: 0,
-  monsterVisualDownOffsetRatio: 0.12,
+  monsterVisualDownOffsetRatio: 0,
   monsterBottomClearance: 0,
+  catBossCrop: { x: 218, y: 94, w: 803, h: 1033 },
   hpWidthMax: 320,
   hpHorizontalPadding: 42,
   hpHeight: 22

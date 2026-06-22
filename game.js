@@ -625,7 +625,7 @@ function drawFiveElementDiagram(drawCtx, x, y, size) {
 }
 
 // 绘制单张符牌。
-function drawCard(drawCtx, card, x, y, selected, cardWidth, cardHeight) {
+function drawCard(drawCtx, card, x, y, selected, cardWidth, cardHeight, selectedOrder) {
   const w = cardWidth || 40;
   const h = cardHeight || 62;
   const color = ELEMENT_COLORS[card.element];
@@ -661,6 +661,25 @@ function drawCard(drawCtx, card, x, y, selected, cardWidth, cardHeight) {
   drawCtx.textAlign = 'left';
   drawCtx.textBaseline = 'top';
   drawCtx.fillText(getCardDisplayText(card), x + 6, cardY + 5);
+
+  if (selected && selectedOrder > 0) {
+    const badgeRadius = Math.max(8, Math.floor(w * 0.16));
+    const badgeX = x + w - badgeRadius - 4;
+    const badgeY = cardY + badgeRadius + 4;
+
+    drawCtx.fillStyle = '#d9792b';
+    drawCtx.beginPath();
+    drawCtx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
+    drawCtx.fill();
+    drawCtx.strokeStyle = '#fffaf0';
+    drawCtx.lineWidth = 2;
+    drawCtx.stroke();
+    drawCtx.fillStyle = '#fffaf0';
+    drawCtx.font = gameFont(Math.max(12, Math.floor(badgeRadius * 1.15)));
+    drawCtx.textAlign = 'center';
+    drawCtx.textBaseline = 'middle';
+    drawCtx.fillText(String(selectedOrder), badgeX, badgeY);
+  }
 
   drawCtx.restore();
 }
@@ -762,6 +781,7 @@ class Game {
     this.isResolving = false;
     this.settlementAnimation = null;
     this.visualMonsterHp = this.monsterHp;
+    this.visualMonsterShield = this.monsterShield;
     this.hammerAudio = null;
     this.ambientAnimationRunning = false;
     this.firstHandPlayed = false;
@@ -992,9 +1012,10 @@ class Game {
       : (menuBottom ? menuBottom + Math.round(8 * scale) : Math.round(30 * scale));
     const bottomPadding = Math.max(8, Math.round(10 * scale));
     const sectionGap = Math.max(5, Math.round(7 * scale));
+    const formulaPlayGap = Math.max(2, Math.floor(sectionGap * 0.45));
     const headerHeight = Math.max(32, Math.round(canvasHeight * 0.055));
     const hpBarHeight = Math.max(20, Math.round(canvasHeight * 0.030));
-    const calculationHeight = Math.max(48, Math.round(canvasHeight * 0.060));
+    const calculationHeight = Math.max(42, Math.round(canvasHeight * 0.052));
     const playAreaHeight = Math.max(66, Math.round(canvasHeight * 0.088));
     const deckPreviewHeight = Math.max(50, Math.round(canvasHeight * 0.070));
     const actionButtonsHeight = Math.max(54, Math.round(canvasHeight * 0.075));
@@ -1009,7 +1030,7 @@ class Game {
     let handCardsY = actionButtonsY - handCardsHeight;
     let deckPreviewY = handCardsY - deckPreviewHeight;
     let playAreaY = deckPreviewY - playAreaHeight - sectionGap;
-    let calculationY = playAreaY - calculationHeight - sectionGap;
+    let calculationY = playAreaY - calculationHeight - formulaPlayGap;
     const headerY = topPadding;
     const topBarBottom = headerY + headerHeight;
     const hpBarY = topBarBottom + Math.max(10, Math.round(canvasHeight * 0.024));
@@ -1025,7 +1046,7 @@ class Game {
     handCardsY = actionButtonsY - handCardsHeight;
     deckPreviewY = handCardsY - deckPreviewHeight;
     playAreaY = deckPreviewY - playAreaHeight - sectionGap;
-    calculationY = playAreaY - calculationHeight - sectionGap;
+    calculationY = playAreaY - calculationHeight - formulaPlayGap;
     monsterHeight = Math.max(48, calculationY - monsterY - sectionGap);
     const handCardGap = handSlotGap;
 
@@ -1165,6 +1186,7 @@ class Game {
     this.monsterShield = this.monsterMaxShield;
     this.bossElement = pickRandomElement();
     this.visualMonsterHp = this.monsterHp;
+    this.visualMonsterShield = this.monsterShield;
     this.currentScore = 0;
     this.handsLeft = STARTING_ACTION_COUNT;
     this.discardsLeft = STARTING_ACTION_COUNT;
@@ -1351,7 +1373,7 @@ class Game {
       damageMultiplier = ELEMENT_DISADVANTAGE_DAMAGE_MULTIPLIER;
     }
 
-    const finalScore = Math.floor(spiritPoolAfter * damageMultiplier);
+    const finalScore = Math.ceil(spiritPoolAfter * damageMultiplier);
     let nextState = 'playing';
     const hpBefore = this.monsterHp;
     const shieldBefore = this.monsterShield;
@@ -1376,6 +1398,7 @@ class Game {
     this.currentScore = spiritPoolAfter;
     this.monsterHp = hpAfter;
     this.visualMonsterHp = hpBefore;
+    this.visualMonsterShield = shieldBefore;
     this.gold += context.goldGain;
     this.handsLeft -= 1;
     this.handTypeCounts[result.type] = (this.handTypeCounts[result.type] || 0) + 1;
@@ -1441,6 +1464,8 @@ class Game {
       finalScore: data.finalScore,
       hpBefore: data.hpBefore,
       hpAfter: data.hpAfter,
+      shieldBefore: data.shieldBefore,
+      shieldAfter: data.shieldAfter,
       nextState: data.nextState,
       playedHammerSteps: {}
     };
@@ -1470,6 +1495,7 @@ class Game {
     if (elapsed >= animation.damageStart) {
       const t = easeInOutCubic((elapsed - animation.damageStart) / animation.damageDuration);
       this.visualMonsterHp = Math.round(animation.hpBefore + (animation.hpAfter - animation.hpBefore) * t);
+      this.visualMonsterShield = Math.round(animation.shieldBefore + (animation.shieldAfter - animation.shieldBefore) * t);
     }
 
     this.draw();
@@ -1491,6 +1517,8 @@ class Game {
     this.centerFeedback = null;
     this.settlementAnimation = null;
     this.visualMonsterHp = this.monsterHp;
+    this.visualMonsterShield = this.monsterShield;
+    this.playedCards = [];
 
     if (animation.nextState === 'shop') {
       this.enterShop();
@@ -1715,7 +1743,7 @@ class Game {
     };
   }
 
-  drawGameImage(key, x, y, w, h, alpha) {
+  drawGameImage(key, x, y, w, h, alpha, crop) {
     const image = GAME_IMAGES[key];
 
     if (!image || !image.ready) {
@@ -1724,7 +1752,11 @@ class Game {
 
     ctx.save();
     ctx.globalAlpha = alpha === undefined ? 1 : alpha;
-    ctx.drawImage(image.chromaCanvas || image, x, y, w, h);
+    if (crop) {
+      ctx.drawImage(image.chromaCanvas || image, crop.x, crop.y, crop.w, crop.h, x, y, w, h);
+    } else {
+      ctx.drawImage(image.chromaCanvas || image, x, y, w, h);
+    }
     ctx.restore();
     return true;
   }
@@ -1753,21 +1785,20 @@ class Game {
     });
     const canPreviewHand = selectedCards.length > 0 && selectedCards.length <= MAX_SELECTED_CARDS;
     const result = canPreviewHand ? evaluateHand(selectedCards, this.bossElement) : null;
-    const preview = canPreviewHand ? estimateHandSpirit(selectedCards, result, this.elementBonuses) : null;
     const settlementDisplay = settlementDisplayCached !== undefined
       ? settlementDisplayCached
       : this.getSettlementDisplay();
     const baseText = settlementDisplay
       ? String(Math.round(settlementDisplay.base))
-      : (preview ? formatAmount(preview.spirit) : '');
+      : '';
     const multiplierText = settlementDisplay
       ? String(formatMultiplier(settlementDisplay.multiplier))
-      : (preview ? String(formatMultiplier(preview.momentum)) : '');
-    const handName = settlementDisplay && this.settlementAnimation
-      ? this.settlementAnimation.result.name
+      : '';
+    const handName = settlementDisplay
+      ? ''
       : (canPreviewHand ? result.name : '');
     const boxW = Math.max(42, Math.min(52, Math.floor(canvasWidth * 0.14)));
-    const boxH = Math.max(36, Math.min(42, layout.calculationHeight - 4));
+    const boxH = Math.max(30, Math.min(34, layout.calculationHeight - 12));
     const gap = Math.max(16, Math.floor(canvasWidth * 0.045));
     const totalW = boxW * 2 + gap;
     const x1 = Math.floor((canvasWidth - totalW) / 2);
@@ -1785,19 +1816,14 @@ class Game {
     strokeRoundedRect(ctx, x1, y, boxW, boxH, 8, '#6b4f38', 2);
     strokeRoundedRect(ctx, x2, y, boxW, boxH, 8, '#6b4f38', 2);
 
-    const labelW = Math.max(30, Math.floor(boxW * 0.68));
-    const labelH = Math.max(16, Math.floor(boxH * 0.36));
-    const labelY = y - labelH - 2;
-    fillRoundedRect(ctx, x1 + (boxW - labelW) / 2, labelY, labelW, labelH, 4, '#fffaf0');
-    fillRoundedRect(ctx, x2 + (boxW - labelW) / 2, labelY, labelW, labelH, 4, '#fffaf0');
-    strokeRoundedRect(ctx, x1 + (boxW - labelW) / 2, labelY, labelW, labelH, 4, '#8b7a67', 1);
-    strokeRoundedRect(ctx, x2 + (boxW - labelW) / 2, labelY, labelW, labelH, 4, '#8b7a67', 1);
-    ctx.fillStyle = '#2f2118';
-    ctx.font = gameFont(Math.max(11, Math.floor(labelH * 0.58)));
+    const labelFontSize = 14;
+    const labelY = y - 1;
+    ctx.fillStyle = '#d9792b';
+    ctx.font = gameFont(labelFontSize);
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('灵力', x1 + boxW / 2, labelY + labelH / 2);
-    ctx.fillText('灵势', x2 + boxW / 2, labelY + labelH / 2);
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('灵力', x1 + boxW / 2, labelY);
+    ctx.fillText('灵势', x2 + boxW / 2, labelY);
 
     ctx.fillStyle = '#2f2118';
     ctx.font = gameFont(18);
@@ -1813,21 +1839,28 @@ class Game {
         settlementDisplay.activeStep.hasStatChange &&
         settlementDisplay.activeProgress > 0.24) {
       const spiritBadge = settlementDisplay.activeStep.spiritBadgeText ||
-        '+' + formatAmount(settlementDisplay.activeStep.scoreGain || 0);
+        (settlementDisplay.activeStep.scoreGain > 0
+          ? '+' + formatAmount(settlementDisplay.activeStep.scoreGain)
+          : '');
       const momentumBadge = settlementDisplay.activeStep.momentumGain
         ? '+' + formatAmount(settlementDisplay.activeStep.momentumGain)
         : '';
-      const badgeFontSize = 12;
-      const badgeY = y + boxH - 3;
+      const badgeFontSize = 36;
+      const badgeY = y + boxH / 2;
 
       ctx.fillStyle = '#f2bb35';
       ctx.font = gameFont(badgeFontSize);
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(spiritBadge, x1 + boxW - 4, badgeY);
+
+      if (spiritBadge) {
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(spiritBadge, x1 - 4, badgeY);
+      }
 
       if (momentumBadge) {
-        ctx.fillText(momentumBadge, x2 + boxW - 4, badgeY);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(momentumBadge, x2 + boxW + 4, badgeY);
       }
     }
 
@@ -1862,13 +1895,14 @@ class Game {
       Math.max(stageTop, stageBottom - monsterH)
     );
     const displayedHp = this.settlementAnimation ? this.visualMonsterHp : this.monsterHp;
+    const displayedShield = this.settlementAnimation ? this.visualMonsterShield : this.monsterShield;
     const hpRate = this.monsterMaxHp > 0 ? displayedHp / this.monsterMaxHp : 0;
-    const shieldRate = this.monsterMaxHp > 0 ? this.monsterShield / this.monsterMaxHp : 0;
+    const shieldRate = this.monsterMaxHp > 0 ? displayedShield / this.monsterMaxHp : 0;
     const settlementDisplay = settlementDisplayCached !== undefined
       ? settlementDisplayCached
       : this.getSettlementDisplay();
     const now = Date.now();
-    const breath = Math.sin(now / 520) * 0.035;
+    const breath = Math.sin(now / 520) * 0.028;
     const damageShake = settlementDisplay && settlementDisplay.damageProgress > 0 && settlementDisplay.damageProgress < 0.65
       ? Math.sin(now / 28) * 4 * (1 - settlementDisplay.damageProgress)
       : 0;
@@ -1881,8 +1915,14 @@ class Game {
       stageTop,
       Math.max(stageTop, stageBottom - bossH)
     );
+    const bossCrop = MONSTER_LAYOUT.catBossCrop;
+    const bossImageSize = 1254;
+    const croppedBossW = bossCrop ? bossW * bossCrop.w / bossImageSize : bossW;
+    const croppedBossH = bossCrop ? bossH * bossCrop.h / bossImageSize : bossH;
+    const croppedBossX = bossCrop ? canvasWidth / 2 - croppedBossW / 2 + damageShake : bossX;
+    const croppedBossY = bossCrop ? bossY : bossY;
 
-    if (!this.drawGameImage('catBoss', bossX, bossY, bossW, bossH, 1)) {
+    if (!this.drawGameImage('catBoss', croppedBossX, croppedBossY, croppedBossW, croppedBossH, 1, bossCrop)) {
       fillRoundedRect(ctx, monsterX + damageShake, monsterRenderY, monsterW, monsterH, 20, '#4b3226');
       fillRoundedRect(ctx, monsterX + 18 + damageShake, monsterRenderY + 18, monsterW - 36, monsterH - 20, 16, '#8d5743');
       ctx.fillStyle = '#f6d77f';
@@ -1929,13 +1969,13 @@ class Game {
     if (hpFillW > 0) {
       fillRoundedRect(ctx, hpX, hpY, hpFillW, hpH, 10, '#c54a3f');
     }
-    if (this.monsterShield > 0 && shieldFillW > 0) {
+    if (displayedShield > 0 && shieldFillW > 0) {
       fillRoundedRect(ctx, shieldX, hpY, shieldFillW, hpH, 10, '#6fb0d7');
     }
     strokeRoundedRect(ctx, hpX, hpY, hpW, hpH, 10, '#2f2118', 2);
     ctx.fillStyle = '#2f2118';
     ctx.font = gameFont(14);
-    ctx.fillText(ELEMENT_LABELS[this.bossElement] + ' ' + displayedHp + '/' + this.monsterMaxHp + ' 护盾' + this.monsterShield, canvasWidth / 2, hpY + hpH / 2);
+    ctx.fillText(ELEMENT_LABELS[this.bossElement] + ' ' + displayedHp + '/' + this.monsterMaxHp + ' 护盾' + displayedShield, canvasWidth / 2, hpY + hpH / 2);
   }
 
   drawBattleSideButtons() {
@@ -2235,7 +2275,7 @@ class Game {
     const canvasWidth = layout.canvasWidth;
     const canvasHeight = layout.canvasHeight;
     const modalW = Math.min(canvasWidth - 28, 340);
-    const rowH = 26;
+    const rowH = 54;
     const listH = HAND_TYPES.length * rowH;
     const modalH = Math.min(canvasHeight - layout.topPadding - 24, Math.max(320, 56 + listH + 12));
     const modalX = Math.floor((canvasWidth - modalW) / 2);
@@ -2294,18 +2334,24 @@ class Game {
       strokeRoundedRect(ctx, modalX + 14, y, modalW - 28, rowH - 4, 8, '#d0b486', 1);
 
       ctx.fillStyle = '#2f2118';
-      ctx.font = gameFont(13);
+      ctx.font = gameFont(20);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillText(handType.name, modalX + 26, y + (rowH - 4) / 2);
 
-      const effectText = handType.spiritMultiplier !== 1
-        ? '灵力x' + handType.spiritMultiplier
-        : handType.desc;
+      const effectText = handType.desc;
+      const maxLineLength = 12;
+      const effectLines = effectText.length > maxLineLength
+        ? [effectText.slice(0, maxLineLength), effectText.slice(maxLineLength)]
+        : [effectText];
+      const effectStartY = y + 15;
 
-      ctx.font = gameFont(11);
+      ctx.font = gameFont(13);
       ctx.textAlign = 'center';
-      ctx.fillText(effectText.length > 12 ? effectText.slice(0, 12) : effectText, modalX + modalW / 2 + 18, y + (rowH - 4) / 2);
+      ctx.textBaseline = 'middle';
+      effectLines.forEach(function(line, lineIndex) {
+        ctx.fillText(line, modalX + modalW / 2 + 28, effectStartY + lineIndex * 16);
+      });
 
       ctx.textAlign = 'right';
       ctx.fillText('# ' + count, modalX + modalW - 26, y + (rowH - 4) / 2);
@@ -2474,24 +2520,22 @@ class Game {
 
     drawFiveElementDiagram(ctx, diagramX, diagramY, diagramSize);
 
-    const poolLabelW = Math.max(42, Math.floor(infoW * 0.72));
-    const poolLabelH = Math.max(16, Math.floor(infoBoxH * 0.42));
-    const poolLabelX = infoX + (infoW - poolLabelW) / 2;
-    const poolLabelY = poolY - poolLabelH - 2;
+    const poolLabelFontSize = 14;
+    const poolLabelY = poolY - 1;
 
     fillRoundedRect(ctx, infoX, poolY, infoW, infoBoxH, 8, '#fffaf0');
     strokeRoundedRect(ctx, infoX, poolY, infoW, infoBoxH, 8, '#6b4f38', 2);
     ctx.fillStyle = '#2f2118';
-    ctx.font = gameFont(Math.max(13, Math.min(17, Math.floor(infoW / 5))));
-    ctx.fillText(formatAmount(this.currentScore), infoX + infoW / 2, poolY + infoBoxH / 2);
-
-    fillRoundedRect(ctx, poolLabelX, poolLabelY, poolLabelW, poolLabelH, 4, '#fffaf0');
-    strokeRoundedRect(ctx, poolLabelX, poolLabelY, poolLabelW, poolLabelH, 4, '#8b7a67', 1);
-    ctx.fillStyle = '#2f2118';
-    ctx.font = gameFont(Math.max(11, Math.floor(poolLabelH * 0.58)));
+    ctx.font = gameFont(18);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('灵力池', infoX + infoW / 2, poolLabelY + poolLabelH / 2);
+    ctx.fillText(formatAmount(this.currentScore), infoX + infoW / 2, poolY + infoBoxH / 2);
+
+    ctx.fillStyle = '#c74334';
+    ctx.font = gameFont(poolLabelFontSize);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('灵力池', infoX + infoW / 2, poolLabelY);
 
     fillRoundedRect(ctx, playSlotX - 6, playSlotY - 6, playSlotsW + 12, playCardH + 12, 14, '#ead3a7');
     strokeRoundedRect(ctx, playSlotX - 6, playSlotY - 6, playSlotsW + 12, playCardH + 12, 14, '#6b4f38', 1);
@@ -2559,10 +2603,12 @@ class Game {
 
     this.hand.forEach(function(card, index) {
       const x = startX + index * (cardW + layout.handCardGap);
-      const selected = this.selectedIds.indexOf(card.id) >= 0;
+      const selectedIndex = this.selectedIds.indexOf(card.id);
+      const selected = selectedIndex >= 0;
+      const selectedOrder = selected ? selectedIndex + 1 : 0;
 
       card.displayPower = getCardPower(card, this.elementBonuses);
-      drawCard(ctx, card, x, cardY, selected, cardW, cardH);
+      drawCard(ctx, card, x, cardY, selected, cardW, cardH, selectedOrder);
       this.touchAreas.push({
         x: card.renderX,
         y: card.renderY,
